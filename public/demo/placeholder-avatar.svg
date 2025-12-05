@@ -1,0 +1,19 @@
+<svg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="avatarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10b981;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#059669;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="200" cy="200" r="200" fill="url(#avatarGrad)"/>
+  
+  <!-- User icon -->
+  <g fill="#ffffff" opacity="0.9">
+    <!-- Head -->
+    <circle cx="200" cy="150" r="60"/>
+    <!-- Body -->
+    <path d="M 200,220 Q 140,220 110,280 L 110,400 L 290,400 L 290,280 Q 260,220 200,220 Z"/>
+  </g>
+</svg>

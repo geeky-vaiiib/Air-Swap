@@ -1,0 +1,222 @@
+{
+  "manifestVersion": "1.0.0",
+  "generatedDate": "2025-12-05",
+  "project": "AirSwap Growth Platform",
+  "description": "Complete visual asset inventory for the AirSwap frontend",
+  "assets": [
+    {
+      "path": "public/demo/before.jpg",
+      "width": 1600,
+      "height": 1200,
+      "filesize": "38KB",
+      "format": "JPEG",
+      "altText": "NDVI before - low vegetation health showing muted greens and browns with red stress overlay",
+      "usage": "NDVI demo mode - 'before' image showing degraded land state",
+      "category": "demo"
+    },
+    {
+      "path": "public/demo/after.jpg",
+      "width": 1600,
+      "height": 1200,
+      "filesize": "110KB",
+      "format": "JPEG",
+      "altText": "NDVI after - high vegetation health with vibrant green heatmap",
+      "usage": "NDVI demo mode - 'after' image showing improved land state",
+      "category": "demo"
+    },
+    {
+      "path": "public/demo/before.svg",
+      "width": 1600,
+      "height": 1200,
+      "filesize": "3.2KB",
+      "format": "SVG",
+      "altText": "NDVI before visualization (vector)",
+      "usage": "Vector version of before.jpg for scalable display",
+      "category": "demo"
+    },
+    {
+      "path": "public/demo/after.svg",
+      "width": 1600,
+      "height": 1200,
+      "filesize": "3.5KB",
+      "format": "SVG",
+      "altText": "NDVI after visualization (vector)",
+      "usage": "Vector version of after.jpg for scalable display",
+      "category": "demo"
+    },
+    {
+      "path": "public/demo/placeholder-avatar.png",
+      "width": 400,
+      "height": 400,
+      "filesize": "16KB",
+      "format": "PNG",
+      "altText": "User placeholder avatar with AirSwap branding",
+      "usage": "Default user profile picture, demo mode contributor avatars",
+      "category": "demo"
+    },
+    {
+      "path": "public/demo/hero-loop.gif",
+      "width": 800,
+      "height": 400,
+      "filesize": "26KB",
+      "format": "GIF",
+      "altText": "NDVI transformation animation from before to after state",
+      "usage": "Hero section animated demo showing NDVI improvement",
+      "category": "demo"
+    },
+    {
+      "path": "public/demo/hero-loop.png",
+      "width": 800,
+      "height": 400,
+      "filesize": "26KB",
+      "format": "PNG",
+      "altText": "NDVI transformation static preview",
+      "usage": "Fallback for hero-loop.gif if animation not supported",
+      "category": "demo"
+    },
+    {
+      "path": "public/hero/ndvi-grid.svg",
+      "width": 800,
+      "height": 600,
+      "filesize": "3.0KB",
+      "format": "SVG",
+      "altText": "Stylized NDVI grid visualization with green tiles",
+      "usage": "Hero section background - grid pattern showing NDVI data representation",
+      "category": "hero"
+    },
+    {
+      "path": "public/hero/noise.svg",
+      "width": 1200,
+      "height": 800,
+      "filesize": "1.3KB",
+      "format": "SVG",
+      "altText": "Subtle organic texture with leaf patterns",
+      "usage": "Hero section background texture overlay for visual depth",
+      "category": "hero"
+    },
+    {
+      "path": "public/hero/blur-blob-1.svg",
+      "width": 600,
+      "height": 600,
+      "filesize": "643B",
+      "format": "SVG",
+      "altText": "Soft radial gradient blob in green/teal tones",
+      "usage": "Hero section decorative element - background accent",
+      "category": "hero"
+    },
+    {
+      "path": "public/hero/blur-blob-2.svg",
+      "width": 600,
+      "height": 600,
+      "filesize": "643B",
+      "format": "SVG",
+      "altText": "Complementary radial gradient blob in yellow/green tones",
+      "usage": "Hero section decorative element - secondary background accent",
+      "category": "hero"
+    },
+    {
+      "path": "public/hero/hero-illustration.png",
+      "width": 1200,
+      "height": 800,
+      "filesize": "67KB",
+      "format": "PNG",
+      "altText": "Abstract map visualization with organic shapes and data points",
+      "usage": "Main hero section illustration combining map patches and growth indicators",
+      "category": "hero"
+    },
+    {
+      "path": "public/hero/hero-illustration.svg",
+      "width": 1200,
+      "height": 800,
+      "filesize": "2.5KB",
+      "format": "SVG",
+      "altText": "Hero illustration (vector version)",
+      "usage": "Scalable version of hero-illustration.png",
+      "category": "hero"
+    },
+    {
+      "path": "public/market/credit-card.png",
+      "width": 600,
+      "height": 400,
+      "filesize": "22KB",
+      "format": "PNG",
+      "altText": "Carbon credit card preview showing tCO₂e value",
+      "usage": "Marketplace card preview, credit trading interface placeholder",
+      "category": "marketplace"
+    },
+    {
+      "path": "public/icons/favicon-16x16.png",
+      "width": 16,
+      "height": 16,
+      "filesize": "631B",
+      "format": "PNG",
+      "altText": "AirSwap favicon 16x16",
+      "usage": "Browser tab icon (small)",
+      "category": "icons"
+    },
+    {
+      "path": "public/icons/favicon-32x32.png",
+      "width": 32,
+      "height": 32,
+      "filesize": "1.2KB",
+      "format": "PNG",
+      "altText": "AirSwap favicon 32x32",
+      "usage": "Browser tab icon (standard)",
+      "category": "icons"
+    },
+    {
+      "path": "public/icons/icon-192x192.png",
+      "width": 192,
+      "height": 192,
+      "filesize": "7.3KB",
+      "format": "PNG",
+      "altText": "AirSwap PWA icon 192x192",
+      "usage": "Progressive Web App icon (Android)",
+      "category": "icons"
+    },
+    {
+      "path": "public/icons/icon-512x512.png",
+      "width": 512,
+      "height": 512,
+      "filesize": "25KB",
+      "format": "PNG",
+      "altText": "AirSwap PWA icon 512x512",
+      "usage": "Progressive Web App splash screen icon",
+      "category": "icons"
+    },
+    {
+      "path": "public/social/social-preview.png",
+      "width": 1200,
+      "height": 630,
+      "filesize": "66KB",
+      "format": "PNG",
+      "altText": "AirSwap social media preview with title and tagline",
+      "usage": "Open Graph image for social media sharing (Twitter, Facebook, LinkedIn)",
+      "category": "social"
+    }
+  ],
+  "summary": {
+    "totalAssets": 20,
+    "totalSize": "~450KB",
+    "categories": {
+      "demo": 7,
+      "hero": 6,
+      "marketplace": 1,
+      "icons": 4,
+      "social": 1
+    },
+    "formats": {
+      "SVG": 7,
+      "PNG": 9,
+      "JPEG": 2,
+      "GIF": 1
+    }
+  },
+  "notes": [
+    "All SVG files are lightweight and scale infinitely without quality loss",
+    "JPEG format used for photographic NDVI images to reduce file size",
+    "PNG format used for graphics with transparency and sharp edges",
+    "All images optimized for web delivery with quality vs. size balance",
+    "Color palette follows AirSwap brand: greens (#22c55e, #10b981, #059669) with accent yellows"
+  ]
+}

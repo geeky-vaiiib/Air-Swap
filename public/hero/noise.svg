@@ -1,0 +1,30 @@
+<svg width="1200" height="800" viewBox="0 0 1200 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Subtle grain/leaf texture for background -->
+  <defs>
+    <filter id="noise">
+      <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feBlend mode="overlay" in="SourceGraphic"/>
+    </filter>
+    <pattern id="leafPattern" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
+      <path d="M20,50 Q30,30 40,50 T60,50" stroke="#10b981" stroke-width="0.5" fill="none" opacity="0.1"/>
+      <path d="M70,30 Q75,20 80,30 T90,30" stroke="#22c55e" stroke-width="0.5" fill="none" opacity="0.1"/>
+      <ellipse cx="25" cy="70" rx="3" ry="5" fill="#059669" opacity="0.05"/>
+      <ellipse cx="75" cy="80" rx="4" ry="6" fill="#10b981" opacity="0.05"/>
+    </pattern>
+  </defs>
+  
+  <!-- Base layer with pattern -->
+  <rect width="1200" height="800" fill="url(#leafPattern)"/>
+  
+  <!-- Noise overlay -->
+  <rect width="1200" height="800" filter="url(#noise)" opacity="0.03"/>
+  
+  <!-- Organic shapes -->
+  <g opacity="0.04">
+    <circle cx="200" cy="150" r="80" fill="#22c55e"/>
+    <circle cx="900" cy="200" r="100" fill="#10b981"/>
+    <circle cx="400" cy="600" r="120" fill="#059669"/>
+    <circle cx="1000" cy="650" r="90" fill="#22c55e"/>
+  </g>
+</svg>
