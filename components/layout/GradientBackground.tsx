@@ -12,7 +12,7 @@ const GradientBackground = ({
   className = "",
 }: GradientBackgroundProps) => {
   return (
-    <div className={`relative overflow-hidden ${className}`}>
+    <div className={`relative overflow-hidden ${className}`} suppressHydrationWarning>
       {/* Base gradient */}
       <div
         className={`absolute inset-0 ${
@@ -39,6 +39,7 @@ const GradientBackground = ({
               ease: "easeInOut",
             }}
             className="absolute top-1/4 left-1/4 w-96 h-96 bg-teal/30 rounded-full blur-3xl"
+            suppressHydrationWarning
           />
           <motion.div
             animate={{
@@ -52,6 +53,7 @@ const GradientBackground = ({
               ease: "easeInOut",
             }}
             className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-emerald-light/40 rounded-full blur-3xl"
+            suppressHydrationWarning
           />
           <motion.div
             animate={{
@@ -64,6 +66,7 @@ const GradientBackground = ({
               ease: "linear",
             }}
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-teal-glow/20 rounded-full blur-3xl"
+            suppressHydrationWarning
           />
         </>
       )}

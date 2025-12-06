@@ -41,9 +41,10 @@ const securityHeaders = [
     value: [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Required for Next.js
-      "style-src 'self' 'unsafe-inline'", // Required for styled-components/Tailwind
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", // Allow Google Fonts
       "img-src 'self' data: https: blob:",
-      "font-src 'self' data:",
+      "font-src 'self' data: https://fonts.gstatic.com", // Allow Google Fonts
+      "media-src 'self' data: blob:", // Allow audio/video from data URIs
       "connect-src 'self' https://*.mongodb.net wss://*.mongodb.net",
       "frame-ancestors 'none'",
       "base-uri 'self'",

@@ -9,12 +9,8 @@ if (!process.env.MONGODB_URI) {
   throw new Error('Please define MONGODB_URI environment variable');
 }
 
-if (!process.env.MONGODB_DB_NAME) {
-  throw new Error('Please define MONGODB_DB_NAME environment variable');
-}
-
 const MONGODB_URI = process.env.MONGODB_URI;
-const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME;
+const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || 'airswap_growth';
 
 interface MongoGlobal {
   conn: { client: MongoClient; db: Db } | null;

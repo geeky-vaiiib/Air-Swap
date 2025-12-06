@@ -120,6 +120,16 @@ export default async function handler(
       });
     }
 
+    // Better error messages for debugging
+    if (error instanceof Error) {
+      // Don't expose internal errors in production
+      const isDev = process.env.NODE_ENV === 'development';
+      return res.status(500).json({
+        success: false,
+        error: isDev ? error.message : 'Internal server error',
+      });
+    }
+
     return res.status(500).json({
       success: false,
       error: 'Internal server error',
