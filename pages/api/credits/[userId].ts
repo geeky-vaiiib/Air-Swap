@@ -1,12 +1,14 @@
 /**
  * Credits API - GET endpoint
  * GET: Retrieve credits for a specific user
+ *
+ * Uses MongoDB for data storage
  */
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { supabaseAdmin } from '@/lib/supabaseServer';
 import { isDemo } from '@/lib/isDemo';
 import { demoCredits } from '@/demo/demoCredits';
+import { CreditsModel } from '@/lib/db/models/credits';
 
 interface CreditResponse {
   success: boolean;
@@ -46,24 +48,26 @@ export default async function handler(
       });
     }
 
-    // Real mode - query Supabase
-    const { data, error } = await supabaseAdmin
-      .from('credits')
-      .select('*')
-      .eq('owner_user_id', userId)
-      .order('issued_at', { ascending: false });
+    // Real mode - query MongoDB
+    const credits = await CreditsModel.findByOwnerId(userId);
 
-    if (error) {
-      console.error('Supabase query error:', error);
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to retrieve credits',
-      });
-    }
+    // Serialize ObjectIds for JSON response
+    const serializedCredits = credits.map(credit => ({
+      ...credit,
+      _id: credit._id?.toString(),
+      claim_id: credit.claim_id?.toString(),
+      owner_id: credit.owner_id?.toString(),
+    }));
+
+    // Also get total credits
+    const totalCredits = await CreditsModel.getTotalByOwner(userId);
 
     return res.status(200).json({
       success: true,
-      data: data || [],
+      data: {
+        credits: serializedCredits,
+        total: totalCredits,
+      },
       message: 'Credits retrieved successfully',
     });
   } catch (error) {

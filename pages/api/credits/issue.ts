@@ -2,14 +2,18 @@
  * Issue Credits API - POST endpoint
  * Only verifiers can access this endpoint
  * Issues credits for verified claims
+ *
+ * Uses MongoDB for data storage
  */
 
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { ObjectId } from 'mongodb';
 import { z } from 'zod';
-import { supabaseAdmin } from '@/lib/supabaseServer';
 import { getUserFromRequest } from '@/lib/auth';
 import { isDemo } from '@/lib/isDemo';
 import { IssueCreditSchema } from '@/lib/validators/credits';
+import { CreditsModel } from '@/lib/db/models/credits';
+import { TransactionsModel } from '@/lib/db/models/transactions';
 
 interface CreditResponse {
   success: boolean;
@@ -71,51 +75,42 @@ export default async function handler(
       });
     }
 
-    // Insert credit into Supabase
-    const { data: creditData, error: creditError } = await supabaseAdmin
-      .from('credits')
-      .insert({
-        claim_id: validatedData.claim_id,
-        owner_user_id: validatedData.user_id,
-        token_id: null,
-        metadata_cid: validatedData.metadata_cid || null,
-        amount: validatedData.credits,
-        issued_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-
-    if (creditError) {
-      console.error('Supabase credit insert error:', creditError);
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to issue credit',
-      });
-    }
+    // Insert credit into MongoDB
+    const credit = await CreditsModel.create({
+      claim_id: new ObjectId(validatedData.claim_id),
+      owner_id: new ObjectId(validatedData.user_id),
+      amount: validatedData.credits,
+      metadata_cid: validatedData.metadata_cid,
+    });
 
     // Insert transaction log
-    const { error: txError } = await supabaseAdmin
-      .from('transactions')
-      .insert({
-        user_id: validatedData.user_id,
-        tx_hash: null,
+    try {
+      await TransactionsModel.create({
+        user_id: new ObjectId(validatedData.user_id),
         type: 'issue',
         metadata: {
           claim_id: validatedData.claim_id,
           credits: validatedData.credits,
           ndvi_delta: validatedData.ndvi_delta,
-          credit_id: creditData.id,
+          credit_id: credit._id?.toString(),
         },
       });
-
-    if (txError) {
+    } catch (txError) {
       console.error('Transaction log error:', txError);
       // Don't fail the request if transaction log fails
     }
 
+    // Serialize for JSON response
+    const serializedCredit = {
+      ...credit,
+      _id: credit._id?.toString(),
+      claim_id: credit.claim_id?.toString(),
+      owner_id: credit.owner_id?.toString(),
+    };
+
     return res.status(201).json({
       success: true,
-      data: creditData,
+      data: serializedCredit,
       message: 'Credit issued successfully',
     });
   } catch (error) {
