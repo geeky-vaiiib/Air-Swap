@@ -108,9 +108,9 @@ const ContributorDashboard = () => {
                 </p>
               </div>
             </div>
-            <Link href="/map">
+            <Link href="/dashboard/claims/create">
               <Button variant="hero">
-                Open Map
+                Submit Claim
                 <ArrowRight className="w-5 h-5" />
               </Button>
             </Link>

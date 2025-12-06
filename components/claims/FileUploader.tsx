@@ -5,7 +5,7 @@
  * Optimized for evidence files (images, PDFs).
  */
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -55,7 +55,16 @@ export default function FileUploader({
   className
 }: FileUploaderProps) {
   const [uploadingFiles, setUploadingFiles] = useState<UploadedFile[]>([]);
+  const [completedFiles, setCompletedFiles] = useState<UploadedFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Update parent when files are completed
+  useEffect(() => {
+    if (completedFiles.length > 0) {
+      onChange([...value, ...completedFiles]);
+      setCompletedFiles([]);
+    }
+  }, [completedFiles, value, onChange]);
 
   const getFileIcon = (type: string) => {
     if (type.startsWith('image/')) return <Image className="h-4 w-4" />;
@@ -121,7 +130,10 @@ export default function FileUploader({
             const newUploading = prev.filter((_, idx) => idx !== fileIndex);
 
             if (completedFile) {
-              onChange([...value, { ...completedFile, uploadProgress: undefined }]);
+              setCompletedFiles(prevCompleted => [
+                ...prevCompleted,
+                { ...completedFile, uploadProgress: undefined }
+              ]);
             }
 
             return newUploading;

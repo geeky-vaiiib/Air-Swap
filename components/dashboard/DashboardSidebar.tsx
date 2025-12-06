@@ -29,8 +29,8 @@ const roleConfig = {
     title: "Contributor",
     links: [
       { href: "/dashboard/contributor", icon: LayoutDashboard, label: "Overview" },
-      { href: "/map", icon: Map, label: "Submit Claim" },
-      { href: "#", icon: FileCheck, label: "My Claims" },
+      { href: "/dashboard/claims/create", icon: FileCheck, label: "Submit Claim" },
+      { href: "/dashboard/claims", icon: FileCheck, label: "My Claims" },
       { href: "#", icon: Coins, label: "My Credits" },
     ],
   },

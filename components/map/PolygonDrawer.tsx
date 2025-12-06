@@ -52,18 +52,34 @@ export default function PolygonDrawer({ value, onChange, className }: PolygonDra
 
   const parseCoordinates = (coordText: string): number[][] => {
     try {
+      // Skip if input is empty or only whitespace
+      if (!coordText || coordText.trim() === '') {
+        return [];
+      }
+
       // Expected format: "lat1,lng1; lat2,lng2; lat3,lng3; lat4,lng4"
       const points = coordText
         .split(';')
+        .map(point => point.trim())
+        .filter(point => point.length > 0)
         .map(point => {
-          const [lat, lng] = point.trim().split(',').map(Number);
+          const parts = point.split(',').map(p => p.trim());
+          if (parts.length !== 2) throw new Error('Invalid coordinate format');
+
+          const [latStr, lngStr] = parts;
+          const lat = parseFloat(latStr);
+          const lng = parseFloat(lngStr);
+
           if (isNaN(lat) || isNaN(lng)) throw new Error('Invalid coordinate format');
+          if (lat < -90 || lat > 90) throw new Error('Latitude must be between -90 and 90');
+          if (lng < -180 || lng > 180) throw new Error('Longitude must be between -180 and 180');
+
           return [lng, lat]; // GeoJSON uses [lng, lat]
         })
-        .filter(point => !isNaN(point[0]) && !isNaN(point[1]));
+        .filter(point => point.every(coord => !isNaN(coord)));
 
       if (points.length < 3) {
-        throw new Error('At least 3 points required');
+        return []; // Return empty array instead of throwing for validation
       }
 
       // Close the polygon if not already closed

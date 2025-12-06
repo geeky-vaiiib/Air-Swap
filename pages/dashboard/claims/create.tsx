@@ -13,8 +13,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
-import { useForm, FormProvider } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm, FormProvider, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,7 +41,38 @@ const FileUploader = dynamic(() => import('@/components/claims/FileUploader').th
   loading: () => <div className="h-48 bg-muted rounded-lg animate-pulse" />
 });
 
-// Validation schemas for each step
+// Complete form schema with all fields
+const completeFormSchema = z.object({
+  // Step 1
+  fullName: z.string().min(2, 'Name must be at least 2 characters'),
+  email: z.string().email('Invalid email address'),
+  phone: z.string().optional(),
+  // Step 2
+  country: z.string().min(2, 'Country is required'),
+  state: z.string().optional(),
+  city: z.string().optional(),
+  locationDescription: z.string().optional(),
+  polygon: z.object({
+    type: z.literal('Polygon'),
+    coordinates: z.array(z.array(z.array(z.number().min(-180).max(180)).length(2))).min(1)
+  }),
+  // Step 3
+  evidence: z.array(z.object({
+    file: z.any(),
+    name: z.string(),
+    type: z.enum(['image', 'document', 'satellite']),
+    url: z.string().optional(),
+  })).min(1, 'At least one evidence file is required'),
+  // Step 4
+  description: z.string().min(20, 'Description must be at least 20 characters'),
+  areaHectares: z.number().min(0.01, 'Area must be greater than 0'),
+  expectedCredits: z.number().optional(),
+  consent: z.boolean().refine((val) => val === true, {
+    message: 'You must confirm ownership or permission',
+  }),
+});
+
+// Validation schemas for each step (used for step-by-step validation)
 const stepSchemas = {
   1: z.object({
     fullName: z.string().min(2, 'Name must be at least 2 characters'),
@@ -75,7 +105,7 @@ const stepSchemas = {
       message: 'You must confirm ownership or permission',
     }),
   }),
-  5: z.object({}) // Review step - no validation
+  5: completeFormSchema // Review step - validate all fields
 };
 
 type ClaimFormData = {
@@ -115,10 +145,11 @@ export default function CreateClaimPage() {
       consent: false,
       evidence: [],
     },
-    resolver: zodResolver(stepSchemas[currentStep as keyof typeof stepSchemas]),
+    // Use complete schema for final validation on submit
+    // Step-by-step validation is handled manually in nextStep()
   });
 
-  const { handleSubmit, trigger, watch, getValues, setValue, formState: { errors } } = formMethods;
+  const { handleSubmit, watch, getValues, setValue } = formMethods;
   const totalSteps = 5;
 
   const stepTitles = [
@@ -133,30 +164,70 @@ export default function CreateClaimPage() {
   const progress = (currentStep / totalSteps) * 100;
 
   const nextStep = async () => {
-    const isValid = await trigger();
-
-    if (isValid) {
-      // Additional validation for specific steps
+    // Get current form values
+    const currentValues = getValues();
+    
+    // Validate only the fields for the current step using Zod
+    let validationResult;
+    
+    try {
+      switch (currentStep) {
+        case 1:
+          validationResult = stepSchemas[1].parse({
+            fullName: currentValues.fullName,
+            email: currentValues.email,
+            phone: currentValues.phone,
+          });
+          break;
+        case 2:
+          validationResult = stepSchemas[2].parse({
+            country: currentValues.country,
+            state: currentValues.state,
+            city: currentValues.city,
+            locationDescription: currentValues.locationDescription,
+            polygon: currentValues.polygon,
+          });
+          break;
+        case 3:
+          validationResult = stepSchemas[3].parse({
+            evidence: currentValues.evidence,
+          });
+          break;
+        case 4:
+          validationResult = stepSchemas[4].parse({
+            description: currentValues.description,
+            areaHectares: currentValues.areaHectares,
+            expectedCredits: currentValues.expectedCredits,
+            consent: currentValues.consent,
+          });
+          break;
+      }
+      
+      // Additional UI validation for specific steps
       if (currentStep === 2) {
-        const polygon = getValues('polygon');
-        if (!polygon) {
-          toast.error('Please enter valid coordinates for the land polygon');
+        const polygon = currentValues.polygon;
+        if (!polygon || !polygon.coordinates || polygon.coordinates.length === 0) {
+          toast.error('Please draw a polygon on the map to define the land boundaries');
           return;
         }
       } else if (currentStep === 3) {
-        const evidence = getValues('evidence');
+        const evidence = currentValues.evidence;
         if (!evidence || evidence.length === 0) {
           toast.error('Please upload at least one evidence file');
           return;
         }
       }
 
+      // Move to next step
       setCurrentStep(Math.min(currentStep + 1, totalSteps));
-    } else {
-      const formErrors = errors;
-      const firstError = Object.values(formErrors)[0];
-      if (firstError && typeof firstError === 'object' && 'message' in firstError) {
-        toast.error(firstError.message as string);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const firstError = error.errors[0];
+        toast.error(firstError.message);
+      } else {
+        toast.error('Please fill in all required fields');
       }
     }
   };
@@ -166,6 +237,26 @@ export default function CreateClaimPage() {
   };
 
   const prepareClaimData = (data: ClaimFormData) => {
+    console.log({
+      contributorName: data.fullName,
+      contributorEmail: data.email,
+      phone: data.phone,
+      location: {
+        country: data.country,
+        state: data.state,
+        city: data.city,
+        description: data.locationDescription,
+        polygon: data.polygon,
+      },
+      areaHectares: data.areaHectares,
+      description: data.description,
+      expectedCredits: data.expectedCredits,
+      evidence: data.evidence?.map((item) => ({
+        name: item.name,
+        type: item.type,
+        tmpId: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      })),
+    })
     return {
       contributorName: data.fullName,
       contributorEmail: data.email,
@@ -180,7 +271,7 @@ export default function CreateClaimPage() {
       areaHectares: data.areaHectares,
       description: data.description,
       expectedCredits: data.expectedCredits,
-      evidence: data.evidence.map((item) => ({
+      evidence: data.evidence?.map((item) => ({
         name: item.name,
         type: item.type,
         tmpId: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -353,14 +444,21 @@ export default function CreateClaimPage() {
               </div>
 
               <div className="flex items-start space-x-3">
-                <Checkbox
-                  id="consent"
-                  {...formMethods.register('consent')}
+                <Controller
+                  name="consent"
+                  control={formMethods.control}
+                  render={({ field }) => (
+                    <Checkbox
+                      id="consent"
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  )}
                 />
                 <div className="space-y-1 leading-none">
                   <Label
                     htmlFor="consent"
-                    className="text-sm font-medium leading-none"
+                    className="text-sm font-medium leading-none cursor-pointer"
                   >
                     I confirm that I am the owner or have permission to submit this claim *
                   </Label>
@@ -493,12 +591,47 @@ export default function CreateClaimPage() {
 
   // Submit form
   const onSubmit = async (data: ClaimFormData) => {
+    console.log('=== FORM SUBMISSION DEBUG ===');
+    console.log('Raw form data received:', data);
+    console.log('Full Name:', data.fullName);
+    console.log('Email:', data.email);
+    console.log('Polygon:', data.polygon);
+    console.log('Evidence count:', data.evidence?.length);
+    console.log('Area:', data.areaHectares);
+    console.log('Consent:', data.consent);
+    
+    // Validate we have all required data
+    if (!data.fullName || !data.email) {
+      toast.error('Missing required contributor information');
+      setCurrentStep(1);
+      return;
+    }
+    
+    if (!data.polygon || !data.polygon.coordinates || data.polygon.coordinates.length === 0) {
+      toast.error('Missing land polygon. Please go back and draw the land boundaries.');
+      setCurrentStep(2);
+      return;
+    }
+    
+    if (!data.evidence || data.evidence.length === 0) {
+      toast.error('Missing evidence files. Please upload at least one file.');
+      setCurrentStep(3);
+      return;
+    }
+    
+    if (!data.description || !data.areaHectares || !data.consent) {
+      toast.error('Missing required claim details');
+      setCurrentStep(4);
+      return;
+    }
+
     try {
       setIsSubmitting(true);
 
       const claimData = prepareClaimData(data);
+      console.log('Prepared claim data:', claimData);
 
-      const response = await fetch('/api/claims', {
+      const response = await fetch('/api/claims/index-v2', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -506,13 +639,16 @@ export default function CreateClaimPage() {
         body: JSON.stringify(claimData),
       });
 
+      console.log('Response status:', response.status);
       const result = await response.json();
+      console.log('Response data:', result);
 
       if (result.success) {
         toast.success('Claim submitted successfully!');
         router.push(`/dashboard/claims/${result.data._id}`);
       } else {
         toast.error(result.error || 'Failed to submit claim');
+        console.error('Server error:', result.error);
       }
     } catch (error) {
       console.error('Submit error:', error);
