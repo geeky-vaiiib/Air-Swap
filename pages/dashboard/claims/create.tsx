@@ -1,15 +1,19 @@
 /**
- * Create Claim Page - Simplified Single Form
- * 
- * Collects all claim information without map integration.
- * Users can manually enter coordinates or upload a GeoJSON file.
+ * Multi-Step Claim Creation Form
+ *
+ * 5-step wizard for creating carbon credit claims:
+ * 1. Contributor Details
+ * 2. Land Location & Map
+ * 3. Evidence Upload
+ * 4. Claim Metadata
+ * 5. Review & Submit
  */
 
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
-import { useForm } from 'react-hook-form';
+import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -17,115 +21,474 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ArrowLeft, Loader2, Upload, X } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { ArrowLeft, ArrowRight, Loader2, FileText, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import dynamic from 'next/dynamic';
+import type { UploadedFile } from '@/components/claims/FileUploader';
 
-// Validation schema
-const claimFormSchema = z.object({
-  // Contributor info
-  fullName: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
-  phone: z.string().optional(),
-  
-  // Land details
-  country: z.string().min(2, 'Country is required'),
-  state: z.string().optional(),
-  city: z.string().optional(),
-  locationDescription: z.string().optional(),
-  
-  // Coordinates (simplified - 4 corner points)
-  coordinatesText: z.string().min(10, 'Please provide coordinates in format: lat,lng; lat,lng; ...'),
-  
-  // Land info
-  landSize: z.string().min(1, 'Land size is required'),
-  landSizeUnit: z.enum(['hectares', 'acres', 'sqm']),
-  vegetationType: z.string().min(1, 'Vegetation type is required'),
-  
-  // Claim details
-  description: z.string().min(20, 'Description must be at least 20 characters'),
-  expectedCredits: z.string().optional(),
-  
-  // Consent
-  consent: z.boolean().refine((val) => val === true, {
-    message: 'You must confirm ownership or permission',
-  }),
+// Dynamic imports for map and file uploader components
+const PolygonDrawer = dynamic(() => import('@/components/map/PolygonDrawer'), {
+  ssr: false,
+  loading: () => <div className="h-96 bg-muted rounded-lg animate-pulse" />
 });
 
-type ClaimFormData = z.infer<typeof claimFormSchema>;
+const FileUploader = dynamic(() => import('@/components/claims/FileUploader').then(mod => ({ default: mod.default })), {
+  ssr: false,
+  loading: () => <div className="h-48 bg-muted rounded-lg animate-pulse" />
+});
+
+// Validation schemas for each step
+const stepSchemas = {
+  1: z.object({
+    fullName: z.string().min(2, 'Name must be at least 2 characters'),
+    email: z.string().email('Invalid email address'),
+    phone: z.string().optional(),
+  }),
+  2: z.object({
+    country: z.string().min(2, 'Country is required'),
+    state: z.string().optional(),
+    city: z.string().optional(),
+    locationDescription: z.string().optional(),
+    polygon: z.object({
+      type: z.literal('Polygon'),
+      coordinates: z.array(z.array(z.array(z.number().min(-180).max(180)).length(2))).min(1)
+    }),
+  }),
+  3: z.object({
+    evidence: z.array(z.object({
+      file: z.any(),
+      name: z.string(),
+      type: z.enum(['image', 'document', 'satellite']),
+      url: z.string().optional(),
+    })).min(1, 'At least one evidence file is required'),
+  }),
+  4: z.object({
+    description: z.string().min(20, 'Description must be at least 20 characters'),
+    areaHectares: z.number().min(0.01, 'Area must be greater than 0'),
+    expectedCredits: z.number().optional(),
+    consent: z.boolean().refine((val) => val === true, {
+      message: 'You must confirm ownership or permission',
+    }),
+  }),
+  5: z.object({}) // Review step - no validation
+};
+
+type ClaimFormData = {
+  // Step 1
+  fullName: string;
+  email: string;
+  phone?: string;
+
+  // Step 2
+  country: string;
+  state?: string;
+  city?: string;
+  locationDescription?: string;
+  polygon: {
+    type: 'Polygon';
+    coordinates: number[][][];
+  };
+
+  // Step 3
+  evidence: UploadedFile[];
+
+  // Step 4
+  description: string;
+  areaHectares: number;
+  expectedCredits?: number;
+  consent: boolean;
+};
 
 export default function CreateClaimPage() {
   const router = useRouter();
+  const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    setValue,
-    watch,
-  } = useForm<ClaimFormData>({
-    resolver: zodResolver(claimFormSchema),
+
+  const formMethods = useForm<ClaimFormData>({
+    mode: 'onChange',
     defaultValues: {
-      landSizeUnit: 'hectares',
       consent: false,
+      evidence: [],
     },
+    resolver: zodResolver(stepSchemas[currentStep as keyof typeof stepSchemas]),
   });
 
-  const consent = watch('consent');
+  const { handleSubmit, trigger, watch, getValues, setValue, formState: { errors } } = formMethods;
+  const totalSteps = 5;
 
-  // Parse coordinates from text input
-  const parseCoordinates = (coordText: string): number[][][] => {
-    try {
-      // Expected format: "lat1,lng1; lat2,lng2; lat3,lng3; lat4,lng4"
-      const points = coordText
-        .split(';')
-        .map(point => {
-          const [lat, lng] = point.trim().split(',').map(Number);
-          return [lng, lat]; // GeoJSON uses [lng, lat]
-        })
-        .filter(point => !isNaN(point[0]) && !isNaN(point[1]));
+  const stepTitles = [
+    'Contributor Details',
+    'Land Location & Map',
+    'Evidence Upload',
+    'Claim Metadata',
+    'Review & Submit'
+  ];
 
-      if (points.length < 3) {
-        throw new Error('At least 3 points required');
+  const watchedValues = watch();
+  const progress = (currentStep / totalSteps) * 100;
+
+  const nextStep = async () => {
+    const isValid = await trigger();
+
+    if (isValid) {
+      // Additional validation for specific steps
+      if (currentStep === 2) {
+        const polygon = getValues('polygon');
+        if (!polygon) {
+          toast.error('Please enter valid coordinates for the land polygon');
+          return;
+        }
+      } else if (currentStep === 3) {
+        const evidence = getValues('evidence');
+        if (!evidence || evidence.length === 0) {
+          toast.error('Please upload at least one evidence file');
+          return;
+        }
       }
 
-      // Close the polygon
-      points.push(points[0]);
-
-      return [points];
-    } catch (error) {
-      console.error('Coordinate parsing error:', error);
-      return [[[0, 0], [0, 0], [0, 0], [0, 0]]];
+      setCurrentStep(Math.min(currentStep + 1, totalSteps));
+    } else {
+      const formErrors = errors;
+      const firstError = Object.values(formErrors)[0];
+      if (firstError && typeof firstError === 'object' && 'message' in firstError) {
+        toast.error(firstError.message as string);
+      }
     }
   };
 
-  // Handle file upload
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    const validFiles = files.filter(file => {
-      const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
-      const maxSize = 20 * 1024 * 1024; // 20MB
-      
-      if (!validTypes.includes(file.type)) {
-        toast.error(`${file.name}: Invalid file type`);
-        return false;
-      }
-      if (file.size > maxSize) {
-        toast.error(`${file.name}: File too large (max 20MB)`);
-        return false;
-      }
-      return true;
-    });
-
-    setUploadedFiles(prev => [...prev, ...validFiles]);
+  const prevStep = () => {
+    setCurrentStep(Math.max(currentStep - 1, 1));
   };
 
-  const removeFile = (index: number) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+  const prepareClaimData = (data: ClaimFormData) => {
+    return {
+      contributorName: data.fullName,
+      contributorEmail: data.email,
+      phone: data.phone,
+      location: {
+        country: data.country,
+        state: data.state,
+        city: data.city,
+        description: data.locationDescription,
+        polygon: data.polygon,
+      },
+      areaHectares: data.areaHectares,
+      description: data.description,
+      expectedCredits: data.expectedCredits,
+      evidence: data.evidence.map((item) => ({
+        name: item.name,
+        type: item.type,
+        tmpId: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      })),
+    };
+  };
+
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Information</CardTitle>
+              <CardDescription>Provide your contact details</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="fullName">Full Name *</Label>
+                  <Input
+                    id="fullName"
+                    placeholder="John Doe"
+                    {...formMethods.register('fullName')}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email Address *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="john@example.com"
+                    {...formMethods.register('email')}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number (Optional)</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="+1 234 567 8900"
+                  {...formMethods.register('phone')}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        );
+
+      case 2:
+        return (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Location Information</CardTitle>
+                <CardDescription>Where is your land located?</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="country">Country *</Label>
+                    <Input
+                      id="country"
+                      placeholder="India"
+                      {...formMethods.register('country')}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="state">State/Province</Label>
+                    <Input
+                      id="state"
+                      placeholder="Karnataka"
+                      {...formMethods.register('state')}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="city">City</Label>
+                    <Input
+                      id="city"
+                      placeholder="Bengaluru"
+                      {...formMethods.register('city')}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="locationDescription">Location Description</Label>
+                  <Textarea
+                    id="locationDescription"
+                    placeholder="e.g., Rural farmland near village XYZ"
+                    {...formMethods.register('locationDescription')}
+                    rows={2}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <PolygonDrawer
+              value={watchedValues.polygon}
+              onChange={(polygon) => {
+                if (polygon) {
+                  setValue('polygon', polygon);
+                }
+              }}
+            />
+          </div>
+        );
+
+      case 3:
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Evidence Documents</CardTitle>
+              <CardDescription>
+                Upload land documents, satellite images, or photographs to support your claim
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FileUploader
+                value={watchedValues.evidence}
+                onChange={(files) => setValue('evidence', files)}
+              />
+            </CardContent>
+          </Card>
+        );
+
+      case 4:
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Claim Metadata</CardTitle>
+              <CardDescription>Provide details about your carbon credit claim</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="description">Project Description *</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Describe your land restoration or conservation project..."
+                  {...formMethods.register('description')}
+                  rows={4}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="areaHectares">Land Area (Hectares) *</Label>
+                  <Input
+                    id="areaHectares"
+                    type="number"
+                    step="0.01"
+                    placeholder="2.5"
+                    {...formMethods.register('areaHectares', { valueAsNumber: true })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="expectedCredits">Expected Carbon Credits (Optional)</Label>
+                  <Input
+                    id="expectedCredits"
+                    type="number"
+                    placeholder="100"
+                    {...formMethods.register('expectedCredits', { valueAsNumber: true })}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-start space-x-3">
+                <Checkbox
+                  id="consent"
+                  {...formMethods.register('consent')}
+                />
+                <div className="space-y-1 leading-none">
+                  <Label
+                    htmlFor="consent"
+                    className="text-sm font-medium leading-none"
+                  >
+                    I confirm that I am the owner or have permission to submit this claim *
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    By checking this box, you confirm that all information provided is accurate
+                    and you have the legal right to submit this claim.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+
+      case 5:
+        return (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Review Your Claim</CardTitle>
+                <CardDescription>Please review all information before submitting</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Contributor Info */}
+                <div>
+                  <h4 className="font-medium mb-2">Contributor Information</h4>
+                  <div className="bg-muted p-4 rounded-lg space-y-2">
+                    <div className="flex justify-between">
+                      <span>Name:</span>
+                      <span className="font-medium">{watchedValues.fullName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Email:</span>
+                      <span className="font-medium">{watchedValues.email}</span>
+                    </div>
+                    {watchedValues.phone && (
+                      <div className="flex justify-between">
+                        <span>Phone:</span>
+                        <span className="font-medium">{watchedValues.phone}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Location Info */}
+                <div>
+                  <h4 className="font-medium mb-2">Location Information</h4>
+                  <div className="bg-muted p-4 rounded-lg space-y-2">
+                    <div className="flex justify-between">
+                      <span>Country:</span>
+                      <span className="font-medium">{watchedValues.country}</span>
+                    </div>
+                    {watchedValues.state && (
+                      <div className="flex justify-between">
+                        <span>State:</span>
+                        <span className="font-medium">{watchedValues.state}</span>
+                      </div>
+                    )}
+                    {watchedValues.city && (
+                      <div className="flex justify-between">
+                        <span>City:</span>
+                        <span className="font-medium">{watchedValues.city}</span>
+                      </div>
+                    )}
+                    {watchedValues.locationDescription && (
+                      <div className="flex justify-between">
+                        <span>Description:</span>
+                        <span className="font-medium">{watchedValues.locationDescription}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Evidence */}
+                <div>
+                  <h4 className="font-medium mb-2">Evidence Files</h4>
+                  <div className="bg-muted p-4 rounded-lg">
+                    <div className="space-y-2">
+                      {watchedValues.evidence?.map((file, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <FileText className="h-4 w-4" />
+                          <span className="text-sm">{file.name}</span>
+                          <Badge variant="secondary" className="text-xs">
+                            {file.type}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Claim Details */}
+                <div>
+                  <h4 className="font-medium mb-2">Claim Details</h4>
+                  <div className="bg-muted p-4 rounded-lg space-y-2">
+                    <div className="flex justify-between">
+                      <span>Description:</span>
+                      <span className="font-medium text-right max-w-md">{watchedValues.description}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Area:</span>
+                      <span className="font-medium">{watchedValues.areaHectares} hectares</span>
+                    </div>
+                    {watchedValues.expectedCredits && (
+                      <div className="flex justify-between">
+                        <span>Expected Credits:</span>
+                        <span className="font-medium">{watchedValues.expectedCredits}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span>Consent:</span>
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      default:
+        return null;
+    }
   };
 
   // Submit form
@@ -133,35 +496,8 @@ export default function CreateClaimPage() {
     try {
       setIsSubmitting(true);
 
-      // Parse coordinates
-      const coordinates = parseCoordinates(data.coordinatesText);
+      const claimData = prepareClaimData(data);
 
-      // Prepare claim data
-      const claimData = {
-        contributorName: data.fullName,
-        contributorEmail: data.email,
-        phone: data.phone,
-        location: {
-          country: data.country,
-          state: data.state,
-          city: data.city,
-          description: data.locationDescription,
-          polygon: {
-            type: 'Polygon' as const,
-            coordinates,
-          },
-        },
-        areaHectares: parseFloat(data.landSize),
-        description: `${data.description}\n\nLand Size: ${data.landSize} ${data.landSizeUnit}\nVegetation: ${data.vegetationType}`,
-        expectedCredits: data.expectedCredits ? parseInt(data.expectedCredits) : undefined,
-        evidence: uploadedFiles.map((file, index) => ({
-          name: file.name,
-          type: file.type.startsWith('image/') ? 'image' as const : 'document' as const,
-          tmpId: `temp-${Date.now()}-${index}`,
-        })),
-      };
-
-      // Submit to API
       const response = await fetch('/api/claims', {
         method: 'POST',
         headers: {
@@ -187,7 +523,7 @@ export default function CreateClaimPage() {
   };
 
   return (
-    <>
+    <FormProvider {...formMethods}>
       <Head>
         <title>Submit New Claim | AirSwap</title>
         <meta name="description" content="Submit a new carbon credit claim" />
@@ -202,318 +538,73 @@ export default function CreateClaimPage() {
               Back to Claims
             </Link>
           </Button>
-          
+
           <h1 className="text-3xl font-bold tracking-tight">Submit New Claim</h1>
           <p className="text-muted-foreground mt-1">
-            Fill in the details below to submit your carbon credit claim
+            Step {currentStep} of {totalSteps}: {stepTitles[currentStep - 1]}
           </p>
+
+          {/* Progress Bar */}
+          <div className="mt-4">
+            <Progress value={progress} className="h-2" />
+            <div className="flex justify-between text-xs text-muted-foreground mt-2">
+              {stepTitles.map((title, index) => (
+                <span
+                  key={index}
+                  className={`${
+                    index + 1 <= currentStep ? 'text-primary font-medium' : ''
+                  }`}
+                >
+                  {index + 1}. {title}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* Contributor Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Your Information</CardTitle>
-              <CardDescription>Provide your contact details</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="fullName">Full Name *</Label>
-                  <Input
-                    id="fullName"
-                    placeholder="John Doe"
-                    {...register('fullName')}
-                    aria-invalid={!!errors.fullName}
-                  />
-                  {errors.fullName && (
-                    <p className="text-sm text-destructive">{errors.fullName.message}</p>
-                  )}
-                </div>
+          {renderStepContent()}
 
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email Address *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="john@example.com"
-                    {...register('email')}
-                    aria-invalid={!!errors.email}
-                  />
-                  {errors.email && (
-                    <p className="text-sm text-destructive">{errors.email.message}</p>
-                  )}
-                </div>
-              </div>
+          {/* Navigation Buttons */}
+          <div className="flex gap-4 pt-4">
+            {currentStep > 1 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={prevStep}
+                disabled={isSubmitting}
+              >
+                Previous
+              </Button>
+            )}
 
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number (Optional)</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+1 234 567 8900"
-                  {...register('phone')}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Location Details */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Location Information</CardTitle>
-              <CardDescription>Where is your land located?</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="country">Country *</Label>
-                  <Input
-                    id="country"
-                    placeholder="India"
-                    {...register('country')}
-                    aria-invalid={!!errors.country}
-                  />
-                  {errors.country && (
-                    <p className="text-sm text-destructive">{errors.country.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="state">State/Province</Label>
-                  <Input
-                    id="state"
-                    placeholder="Karnataka"
-                    {...register('state')}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="city">City</Label>
-                  <Input
-                    id="city"
-                    placeholder="Bengaluru"
-                    {...register('city')}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="locationDescription">Location Description</Label>
-                <Textarea
-                  id="locationDescription"
-                  placeholder="e.g., Rural farmland near village XYZ"
-                  {...register('locationDescription')}
-                  rows={2}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="coordinatesText">Land Coordinates *</Label>
-                <Textarea
-                  id="coordinatesText"
-                  placeholder="Enter coordinates as: 12.9716,77.5946; 12.9717,77.5947; 12.9718,77.5946; 12.9717,77.5945"
-                  {...register('coordinatesText')}
-                  rows={3}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Format: latitude,longitude; separated by semicolons. Minimum 3 points (will be closed automatically).
-                </p>
-                {errors.coordinatesText && (
-                  <p className="text-sm text-destructive">{errors.coordinatesText.message}</p>
+            {currentStep < totalSteps ? (
+              <Button
+                type="button"
+                onClick={nextStep}
+                className="flex-1"
+                disabled={isSubmitting}
+              >
+                Next: {stepTitles[currentStep]}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex-1"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Submitting Claim...
+                  </>
+                ) : (
+                  'Submit Claim'
                 )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Land Details */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Land Details</CardTitle>
-              <CardDescription>Describe your land and vegetation</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="landSize">Land Size *</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="landSize"
-                      type="number"
-                      step="0.01"
-                      placeholder="2.5"
-                      {...register('landSize')}
-                      aria-invalid={!!errors.landSize}
-                      className="flex-1"
-                    />
-                    <Select
-                      defaultValue="hectares"
-                      onValueChange={(value) => setValue('landSizeUnit', value as any)}
-                    >
-                      <SelectTrigger className="w-32">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="hectares">Hectares</SelectItem>
-                        <SelectItem value="acres">Acres</SelectItem>
-                        <SelectItem value="sqm">Sq Meters</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {errors.landSize && (
-                    <p className="text-sm text-destructive">{errors.landSize.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="vegetationType">Vegetation Type *</Label>
-                  <Input
-                    id="vegetationType"
-                    placeholder="e.g., Mixed forest, Grassland, Cropland"
-                    {...register('vegetationType')}
-                    aria-invalid={!!errors.vegetationType}
-                  />
-                  {errors.vegetationType && (
-                    <p className="text-sm text-destructive">{errors.vegetationType.message}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="description">Project Description *</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Describe your land restoration or conservation project..."
-                  {...register('description')}
-                  rows={4}
-                />
-                {errors.description && (
-                  <p className="text-sm text-destructive">{errors.description.message}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="expectedCredits">Expected Carbon Credits (Optional)</Label>
-                <Input
-                  id="expectedCredits"
-                  type="number"
-                  placeholder="100"
-                  {...register('expectedCredits')}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Evidence Upload */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Evidence Documents</CardTitle>
-              <CardDescription>
-                Upload land documents, satellite images, or photographs (JPG, PNG, PDF - Max 20MB each)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="border-2 border-dashed rounded-lg p-6 text-center">
-                <Input
-                  type="file"
-                  multiple
-                  accept="image/jpeg,image/png,image/jpg,application/pdf"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                  id="file-upload"
-                />
-                <Label
-                  htmlFor="file-upload"
-                  className="cursor-pointer flex flex-col items-center gap-2"
-                >
-                  <Upload className="h-8 w-8 text-muted-foreground" />
-                  <span className="text-sm font-medium">Click to upload files</span>
-                  <span className="text-xs text-muted-foreground">
-                    or drag and drop files here
-                  </span>
-                </Label>
-              </div>
-
-              {uploadedFiles.length > 0 && (
-                <div className="space-y-2">
-                  <Label>Uploaded Files ({uploadedFiles.length})</Label>
-                  <div className="space-y-2">
-                    {uploadedFiles.map((file, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-3 border rounded-lg"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="text-sm font-medium">{file.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {(file.size / 1024 / 1024).toFixed(2)} MB
-                          </div>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeFile(index)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Consent */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-start space-x-3">
-                <Checkbox
-                  id="consent"
-                  checked={consent}
-                  onCheckedChange={(checked) => setValue('consent', checked as boolean)}
-                />
-                <div className="space-y-1 leading-none">
-                  <Label
-                    htmlFor="consent"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    I confirm that I am the owner or have permission to submit this claim *
-                  </Label>
-                  <p className="text-sm text-muted-foreground">
-                    By checking this box, you confirm that all information provided is accurate
-                    and you have the legal right to submit this claim.
-                  </p>
-                  {errors.consent && (
-                    <p className="text-sm text-destructive">{errors.consent.message}</p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Submit Button */}
-          <div className="flex gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.back()}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting} className="flex-1">
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Submitting Claim...
-                </>
-              ) : (
-                'Submit Claim'
-              )}
-            </Button>
+              </Button>
+            )}
           </div>
 
           {/* Info Alert */}
@@ -525,6 +616,6 @@ export default function CreateClaimPage() {
           </Alert>
         </form>
       </div>
-    </>
+    </FormProvider>
   );
 }
