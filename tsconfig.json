@@ -20,13 +20,13 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*", "./*"]
+      "@/*": ["./*"]
     },
     "noImplicitAny": false,
     "noUnusedParameters": false,
     "noUnusedLocals": false,
     "strictNullChecks": false
   },
-  "include": ["next-env.d.ts", "pages/**/*.ts", "pages/**/*.tsx", "components/**/*.ts", "components/**/*.tsx", "lib/**/*.ts", "hooks/**/*.ts", "hooks/**/*.tsx", "src/demo/**/*.ts", "src/lib/**/*.ts", ".next/types/**/*.ts"],
+  "include": ["next-env.d.ts", "pages/**/*.ts", "pages/**/*.tsx", "components/**/*.ts", "components/**/*.tsx", "lib/**/*.ts", "hooks/**/*.ts", "hooks/**/*.tsx", "demo/**/*.ts", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]
 }

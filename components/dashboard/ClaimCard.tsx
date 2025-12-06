@@ -6,9 +6,11 @@ interface ClaimCardProps {
   id: string;
   location: string;
   date: string;
-  ndviDelta: number;
+  ndviDelta?: number;
   status: "pending" | "verified" | "rejected";
   credits?: number;
+  area?: string;
+  creditsEarned?: number;
 }
 
 const statusConfig = {
@@ -26,7 +28,7 @@ const statusConfig = {
   },
 };
 
-const ClaimCard = ({ id, location, date, ndviDelta, status, credits }: ClaimCardProps) => {
+const ClaimCard = ({ id, location, date, ndviDelta, status, credits, creditsEarned }: ClaimCardProps) => {
   const statusStyle = statusConfig[status];
 
   return (
@@ -55,20 +57,22 @@ const ClaimCard = ({ id, location, date, ndviDelta, status, credits }: ClaimCard
 
       {/* Stats */}
       <div className="flex items-center gap-4">
-        <div className="flex-1 p-3 rounded-xl bg-teal/10">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-teal" />
-            <span className="text-sm text-muted-foreground">NDVI</span>
+        {ndviDelta !== undefined && (
+          <div className="flex-1 p-3 rounded-xl bg-teal/10">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-teal" />
+              <span className="text-sm text-muted-foreground">NDVI</span>
+            </div>
+            <div className="text-lg font-display font-bold text-teal">
+              +{ndviDelta}%
+            </div>
           </div>
-          <div className="text-lg font-display font-bold text-teal">
-            +{ndviDelta}%
-          </div>
-        </div>
-        {credits && (
+        )}
+        {(credits || creditsEarned) && (
           <div className="flex-1 p-3 rounded-xl bg-forest/10">
             <div className="text-sm text-muted-foreground">Credits</div>
             <div className="text-lg font-display font-bold text-forest">
-              {credits}
+              {credits || creditsEarned}
             </div>
           </div>
         )}

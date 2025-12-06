@@ -10,8 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import GradientBackground from "@/components/layout/GradientBackground";
 import { cn } from "@/lib/utils";
+import { isDemo } from "@/lib/isDemo";
+import { useToast } from "@/hooks/use-toast";
+import type { UserRole } from "@/lib/types/auth";
 
-type Role = "contributor" | "company" | "verifier";
+type Role = UserRole;
 
 const roles = [
   {
@@ -36,14 +39,81 @@ const roles = [
 
 const Signup = () => {
   const router = useRouter();
+  const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [selectedRole, setSelectedRole] = useState<Role>("contributor");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    router.push(`/dashboard/${selectedRole}`);
+
+    // Demo mode - skip API call
+    if (isDemo()) {
+      toast({
+        title: "Demo Mode",
+        description: "Redirecting to dashboard...",
+      });
+      router.push(`/dashboard/${selectedRole}`);
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          full_name: name,
+          role: selectedRole,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        toast({
+          title: "Signup Failed",
+          description: data.error || "Failed to create account",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Store session in localStorage
+      if (data.user && data.access_token) {
+        localStorage.setItem('airswap-session', JSON.stringify({
+          userId: data.user.id,
+          email: data.user.email,
+          role: data.user.role,
+          full_name: data.user.full_name,
+          access_token: data.access_token,
+        }));
+      }
+
+      toast({
+        title: "Success!",
+        description: "Account created successfully",
+      });
+
+      // Redirect to appropriate dashboard
+      router.push(`/dashboard/${selectedRole}`);
+    } catch (error) {
+      console.error('Signup error:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -213,8 +283,14 @@ const Signup = () => {
               </div>
             </div>
 
-            <Button type="submit" variant="hero" className="w-full" size="lg">
-              Create Account
+            <Button
+              type="submit"
+              variant="hero"
+              className="w-full"
+              size="lg"
+              disabled={isLoading}
+            >
+              {isLoading ? "Creating Account..." : "Create Account"}
               <ArrowRight className="w-5 h-5" />
             </Button>
           </form>

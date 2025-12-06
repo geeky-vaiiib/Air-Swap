@@ -15,6 +15,8 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { logout } from "@/lib/authHelpers";
+import { useToast } from "@/hooks/use-toast";
 
 type Role = "contributor" | "company" | "verifier";
 
@@ -54,8 +56,27 @@ const roleConfig = {
 
 const DashboardSidebar = ({ role }: DashboardSidebarProps) => {
   const router = useRouter();
+  const { toast } = useToast();
   const location = { pathname: router.pathname };
   const config = roleConfig[role];
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out",
+      });
+      router.push("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to logout",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <motion.aside
@@ -117,13 +138,13 @@ const DashboardSidebar = ({ role }: DashboardSidebarProps) => {
           <Settings className="w-5 h-5" />
           <span className="font-medium">Settings</span>
         </button>
-        <Link
-          href="/login"
-          className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:text-destructive hover:bg-destructive/10 transition-all"
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:text-destructive hover:bg-destructive/10 transition-all"
         >
           <LogOut className="w-5 h-5" />
           <span className="font-medium">Logout</span>
-        </Link>
+        </button>
       </div>
     </motion.aside>
   );

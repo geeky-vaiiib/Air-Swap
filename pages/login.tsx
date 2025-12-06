@@ -9,16 +9,83 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import GradientBackground from "@/components/layout/GradientBackground";
+import { isDemo } from "@/lib/isDemo";
+import { useToast } from "@/hooks/use-toast";
 
 const Login = () => {
   const router = useRouter();
+  const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Demo: navigate to contributor dashboard
-    router.push("/dashboard/contributor");
+
+    // Demo mode - skip API call
+    if (isDemo()) {
+      toast({
+        title: "Demo Mode",
+        description: "Redirecting to dashboard...",
+      });
+      router.push("/dashboard/contributor");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        toast({
+          title: "Login Failed",
+          description: data.error || "Invalid email or password",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Store session in localStorage
+      if (data.user && data.access_token) {
+        localStorage.setItem('airswap-session', JSON.stringify({
+          userId: data.user.id,
+          email: data.user.email,
+          role: data.user.role,
+          full_name: data.user.full_name,
+          access_token: data.access_token,
+        }));
+      }
+
+      toast({
+        title: "Success!",
+        description: "Logged in successfully",
+      });
+
+      // Redirect to appropriate dashboard based on role
+      const role = data.user.role;
+      router.push(`/dashboard/${role}`);
+    } catch (error) {
+      console.error('Login error:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -86,8 +153,14 @@ const Login = () => {
               </div>
             </div>
 
-            <Button type="submit" variant="hero" className="w-full" size="lg">
-              Log In
+            <Button
+              type="submit"
+              variant="hero"
+              className="w-full"
+              size="lg"
+              disabled={isLoading}
+            >
+              {isLoading ? "Logging in..." : "Log In"}
               <ArrowRight className="w-5 h-5" />
             </Button>
           </form>
