@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { MousePointer, Pentagon, Trash2, RotateCcw } from "lucide-react";
+import { MousePointer, Pentagon, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MapToolbarProps {

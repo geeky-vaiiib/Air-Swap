@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, lazy, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { motion } from "framer-motion";
 import { Leaf, ArrowLeft, Info } from "lucide-react";
 import Link from "next/link";
@@ -61,7 +61,7 @@ const MapPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [hasPolygon, setHasPolygon] = useState(false);
 
-  const handlePolygonComplete = async (coordinates: [number, number][]) => {
+  const handlePolygonComplete = async (_coordinates: [number, number][]) => {
     setIsLoading(true);
     setIsPanelOpen(true);
     setHasPolygon(true);

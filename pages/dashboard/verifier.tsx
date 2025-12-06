@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { FileCheck, CheckCircle, XCircle, Clock, User, TrendingUp, Eye } from "lucide-react";
+import { CheckCircle, XCircle, Clock, User, TrendingUp, Eye } from "lucide-react";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import VerifierModal from "@/components/dashboard/VerifierModal";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
 import { isDemo } from "@/lib/isDemo";
 import { demoPendingClaims, type DemoPendingClaim } from "@/demo/demoPendingClaims";
 
