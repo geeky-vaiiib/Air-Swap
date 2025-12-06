@@ -1,14 +1,23 @@
 /**
  * Zod validation schemas for Claims API
+ * Updated for MongoDB (uses ObjectId string format)
  */
 
 import { z } from 'zod';
+
+// MongoDB ObjectId validation regex (24 hex characters)
+const objectIdRegex = /^[a-fA-F0-9]{24}$/;
+
+/**
+ * Custom ObjectId validator
+ */
+export const ObjectIdSchema = z.string().regex(objectIdRegex, 'Invalid ObjectId format');
 
 /**
  * Schema for creating a new claim
  */
 export const ClaimInputSchema = z.object({
-  user_id: z.string().uuid('Invalid user ID'),
+  user_id: ObjectIdSchema,
   location: z.string().min(1, 'Location is required'),
   polygon: z.any(), // GeoJSON polygon - basic validation
   evidence_cids: z.array(z.string()).optional(),
