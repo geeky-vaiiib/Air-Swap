@@ -2,15 +2,18 @@
  * Claims API - GET and POST endpoints
  * GET: Retrieve claims (with optional filters)
  * POST: Create a new claim
+ *
+ * Uses MongoDB for data storage
  */
 
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { ObjectId } from 'mongodb';
 import { z } from 'zod';
-import { supabaseAdmin } from '@/lib/supabaseServer';
 import { isDemo } from '@/lib/isDemo';
 import { demoClaims } from '@/demo/demoClaims';
 import type { ClaimResponse } from '@/lib/types/claims';
 import { ClaimInputSchema } from '@/lib/validators/claims';
+import { ClaimsModel } from '@/lib/db/models/claims';
 
 export default async function handler(
   req: NextApiRequest,
@@ -45,14 +48,14 @@ async function handleGet(
     // Demo mode - return demo data
     if (isDemo()) {
       const { userId, status } = req.query;
-      
+
       let filteredClaims = [...demoClaims];
-      
+
       // Filter by status if provided
       if (status && typeof status === 'string') {
         filteredClaims = filteredClaims.filter(claim => claim.status === status);
       }
-      
+
       return res.status(200).json({
         success: true,
         data: filteredClaims,
@@ -60,36 +63,30 @@ async function handleGet(
       });
     }
 
-    // Real mode - query Supabase
+    // Real mode - query MongoDB
     const { userId, status } = req.query;
-    
-    let query = supabaseAdmin
-      .from('claims')
-      .select('*')
-      .order('created_at', { ascending: false });
 
-    // Apply filters
+    let claims;
+
     if (userId && typeof userId === 'string') {
-      query = query.eq('user_id', userId);
+      claims = await ClaimsModel.findByUserId(userId);
+    } else if (status && typeof status === 'string') {
+      claims = await ClaimsModel.findByStatus(status as 'pending' | 'verified' | 'rejected');
+    } else {
+      claims = await ClaimsModel.findAll();
     }
 
-    if (status && typeof status === 'string') {
-      query = query.eq('status', status);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.error('Supabase query error:', error);
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to retrieve claims',
-      });
-    }
+    // Convert ObjectId to string for JSON serialization
+    const serializedClaims = claims.map(claim => ({
+      ...claim,
+      _id: claim._id?.toString(),
+      user_id: claim.user_id?.toString(),
+      verified_by: claim.verified_by?.toString(),
+    }));
 
     return res.status(200).json({
       success: true,
-      data: data || [],
+      data: serializedClaims,
       message: 'Claims retrieved successfully',
     });
   } catch (error) {
@@ -133,59 +130,43 @@ async function handlePost(
     }
 
     // Real mode - check rate limiting (10 claims per day per user)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const count = await ClaimsModel.countByUserToday(validatedData.user_id);
 
-    const { count, error: countError } = await supabaseAdmin
-      .from('claims')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', validatedData.user_id)
-      .gte('created_at', today.toISOString());
-
-    if (countError) {
-      console.error('Rate limit check error:', countError);
-      // Continue anyway, don't block on rate limit check failure
-    } else if (count && count >= 10) {
+    if (count >= 10) {
       return res.status(429).json({
         success: false,
         error: 'Rate limit exceeded: Maximum 10 claims per day',
       });
     }
 
-    // Insert into Supabase
-    const { data, error } = await supabaseAdmin
-      .from('claims')
-      .insert({
-        user_id: validatedData.user_id,
-        location: validatedData.location,
-        polygon: validatedData.polygon,
-        evidence_cids: validatedData.evidence_cids,
-        ndvi_before: validatedData.ndvi_before,
-        ndvi_after: validatedData.ndvi_after,
-        ndvi_delta: validatedData.ndvi_delta,
-        area: validatedData.area,
-        status: 'pending',
-      })
-      .select()
-      .single();
+    // Insert into MongoDB
+    const newClaim = await ClaimsModel.create({
+      user_id: new ObjectId(validatedData.user_id),
+      location: validatedData.location,
+      polygon: validatedData.polygon,
+      evidence: validatedData.evidence_cids,
+      ndvi_before: validatedData.ndvi_before,
+      ndvi_after: validatedData.ndvi_after,
+      ndvi_delta: validatedData.ndvi_delta,
+      area: validatedData.area,
+    });
 
-    if (error) {
-      console.error('Supabase insert error:', error);
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to create claim',
-      });
-    }
+    // Serialize for JSON response
+    const serializedClaim = {
+      ...newClaim,
+      _id: newClaim._id?.toString(),
+      user_id: newClaim.user_id?.toString(),
+    };
 
     // Warning if approaching rate limit
     let message = 'Claim created successfully';
-    if (count && count >= 8) {
+    if (count >= 8) {
       message += ` (Warning: ${count + 1}/10 daily claims used)`;
     }
 
     return res.status(201).json({
       success: true,
-      data,
+      data: serializedClaim,
       message,
     });
   } catch (error) {

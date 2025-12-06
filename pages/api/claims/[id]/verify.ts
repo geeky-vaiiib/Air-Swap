@@ -2,16 +2,22 @@
  * Verify Claim API - PATCH endpoint
  * Only verifiers can access this endpoint
  * Approves or rejects a claim
+ *
+ * Uses MongoDB for data storage
  */
 
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { ObjectId } from 'mongodb';
 import { z } from 'zod';
-import { supabaseAdmin } from '@/lib/supabaseServer';
 import { getUserFromRequest } from '@/lib/auth';
 import { isDemo } from '@/lib/isDemo';
 import { demoClaims } from '@/demo/demoClaims';
 import type { ClaimResponse } from '@/lib/types/claims';
 import { VerifyInputSchema } from '@/lib/validators/claims';
+import { ClaimsModel } from '@/lib/db/models/claims';
+import { CreditsModel } from '@/lib/db/models/credits';
+import { VerifierLogsModel } from '@/lib/db/models/verifierLogs';
+import { TransactionsModel } from '@/lib/db/models/transactions';
 
 export default async function handler(
   req: NextApiRequest,
@@ -41,7 +47,7 @@ export default async function handler(
     // Demo mode - return mock updated claim
     if (isDemo()) {
       const claimIndex = demoClaims.findIndex(c => c.id === id);
-      
+
       if (claimIndex === -1) {
         return res.status(404).json({
           success: false,
@@ -83,35 +89,26 @@ export default async function handler(
       });
     }
 
-    // Update claim in Supabase
-    const updateData: any = {
-      status: validatedData.approved ? 'verified' : 'rejected',
-      verified_by: user.id,
-      verified_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    if (validatedData.approved && validatedData.credits) {
-      updateData.credits = validatedData.credits;
+    // Find the claim first
+    const claim = await ClaimsModel.findById(id);
+    if (!claim) {
+      return res.status(404).json({
+        success: false,
+        error: 'Claim not found',
+      });
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('claims')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+    // Update claim in MongoDB
+    const verifierId = new ObjectId(user.id);
+    const updated = await ClaimsModel.verify(
+      id,
+      verifierId,
+      validatedData.approved,
+      validatedData.credits,
+      validatedData.comment
+    );
 
-    if (error) {
-      console.error('Supabase update error:', error);
-
-      if (error.code === 'PGRST116') {
-        return res.status(404).json({
-          success: false,
-          error: 'Claim not found',
-        });
-      }
-
+    if (!updated) {
       return res.status(500).json({
         success: false,
         error: 'Failed to verify claim',
@@ -119,61 +116,57 @@ export default async function handler(
     }
 
     // Insert verifier log
-    const { error: logError } = await supabaseAdmin
-      .from('verifier_logs')
-      .insert({
-        claim_id: id,
-        verifier_id: user.id,
-        action: validatedData.approved ? 'approved' : 'rejected',
-        comment: validatedData.comment || null,
-        timestamp: new Date().toISOString(),
+    try {
+      await VerifierLogsModel.create({
+        claim_id: new ObjectId(id),
+        verifier_id: verifierId,
+        action: validatedData.approved ? 'approve' : 'reject',
+        comment: validatedData.comment,
       });
-
-    if (logError) {
+    } catch (logError) {
       console.error('Verifier log error:', logError);
       // Don't fail the request if log insert fails
     }
 
     // If approved and credits provided, issue credits
-    if (validatedData.approved && validatedData.credits && data) {
-      const { error: creditError } = await supabaseAdmin
-        .from('credits')
-        .insert({
-          claim_id: id,
-          owner_user_id: data.user_id,
-          token_id: null,
-          metadata_cid: null,
+    if (validatedData.approved && validatedData.credits) {
+      try {
+        const credit = await CreditsModel.create({
+          claim_id: new ObjectId(id),
+          owner_id: claim.user_id,
           amount: validatedData.credits,
-          issued_at: new Date().toISOString(),
         });
 
-      if (creditError) {
-        console.error('Credit issuance error:', creditError);
-        // Don't fail the request if credit insert fails
-      }
-
-      // Insert transaction log
-      const { error: txError } = await supabaseAdmin
-        .from('transactions')
-        .insert({
-          user_id: data.user_id,
-          tx_hash: null,
+        // Insert transaction log
+        await TransactionsModel.create({
+          user_id: claim.user_id,
           type: 'issue',
           metadata: {
             claim_id: id,
+            credit_id: credit._id?.toString(),
             credits: validatedData.credits,
           },
         });
-
-      if (txError) {
-        console.error('Transaction log error:', txError);
-        // Don't fail the request if transaction log fails
+      } catch (creditError) {
+        console.error('Credit issuance error:', creditError);
+        // Don't fail the request if credit insert fails
       }
     }
 
+    // Get updated claim
+    const updatedClaim = await ClaimsModel.findById(id);
+
+    // Serialize for JSON response
+    const serializedClaim = updatedClaim ? {
+      ...updatedClaim,
+      _id: updatedClaim._id?.toString(),
+      user_id: updatedClaim.user_id?.toString(),
+      verified_by: updatedClaim.verified_by?.toString(),
+    } : null;
+
     return res.status(200).json({
       success: true,
-      data,
+      data: serializedClaim,
       message: `Claim ${validatedData.approved ? 'approved' : 'rejected'} successfully`,
     });
   } catch (error) {
