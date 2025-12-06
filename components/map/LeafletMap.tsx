@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { MapContainer, TileLayer, FeatureGroup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -18,7 +18,7 @@ L.Icon.Default.mergeOptions({
 
 const DrawControl = ({ onPolygonComplete, drawEnabled }: LeafletMapProps) => {
   const map = useMap();
-  const [drawing, setDrawing] = useState(false);
+  const [, setDrawing] = useState(false);
   const pointsRef = useRef<L.LatLng[]>([]);
   const polylineRef = useRef<L.Polyline | null>(null);
   const markersRef = useRef<L.CircleMarker[]>([]);
@@ -88,7 +88,7 @@ const DrawControl = ({ onPolygonComplete, drawEnabled }: LeafletMapProps) => {
       markersRef.current = [];
 
       // Add final polygon
-      const polygon = L.polygon(coordinates, {
+      L.polygon(coordinates, {
         color: "#0F5A3C",
         fillColor: "#3EF0C2",
         fillOpacity: 0.3,

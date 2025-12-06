@@ -13,7 +13,6 @@ interface MarketplaceCardProps {
 }
 
 const MarketplaceCard = ({
-  id,
   contributor,
   ndviDelta,
   credits,

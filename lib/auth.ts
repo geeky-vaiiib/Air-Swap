@@ -9,9 +9,21 @@ import type { AuthUser, SessionData } from './types/auth';
 import { NextApiRequest } from 'next';
 import { UsersModel } from './db/models/users';
 
-// JWT secret - must be set in environment variables
-const JWT_SECRET = process.env.JWT_SECRET || 'airswap-jwt-secret-change-in-production';
+// JWT secret - MUST be set in environment variables (no default for security)
+const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = '7d';
+
+// Validate JWT_SECRET is set at runtime
+function getJWTSecret(): string {
+  if (!JWT_SECRET) {
+    throw new Error(
+      'CRITICAL: JWT_SECRET environment variable is not set. ' +
+      'This is required for secure authentication. ' +
+      'Please set JWT_SECRET in your .env.local file.'
+    );
+  }
+  return JWT_SECRET;
+}
 
 export interface JWTPayload {
   id: string;
@@ -41,7 +53,7 @@ export async function comparePassword(password: string, hash: string): Promise<b
  * Generate a JWT token
  */
 export function generateToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  return jwt.sign(payload, getJWTSecret(), { expiresIn: JWT_EXPIRES_IN });
 }
 
 /**
@@ -49,10 +61,13 @@ export function generateToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): string 
  */
 export function verifyToken(token: string): JWTPayload | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
+    const decoded = jwt.verify(token, getJWTSecret()) as JWTPayload;
     return decoded;
   } catch (error) {
-    console.error('Token verification error:', error);
+    // Don't log full error details in production for security
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Token verification error:', error);
+    }
     return null;
   }
 }

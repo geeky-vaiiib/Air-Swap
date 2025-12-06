@@ -68,7 +68,7 @@ export async function getClient(): Promise<MongoClient> {
     return cached.conn.client;
   }
 
-  const db = await getDb();
+  await getDb();
   return cached.conn!.client;
 }
 

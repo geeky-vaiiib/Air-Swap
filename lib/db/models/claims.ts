@@ -60,6 +60,22 @@ export class ClaimsModel {
     return db.collection<Claim>(this.COLLECTION).find(filter).sort({ created_at: -1 }).toArray();
   }
 
+  static async findPaginated(
+    filter: Partial<Claim> = {},
+    skip: number = 0,
+    limit: number = 20
+  ): Promise<{ data: Claim[]; total: number }> {
+    const db = await getDb();
+    const collection = db.collection<Claim>(this.COLLECTION);
+
+    const [data, total] = await Promise.all([
+      collection.find(filter).sort({ created_at: -1 }).skip(skip).limit(limit).toArray(),
+      collection.countDocuments(filter),
+    ]);
+
+    return { data, total };
+  }
+
   static async update(id: string | ObjectId, updates: Partial<Claim>): Promise<boolean> {
     const db = await getDb();
     const _id = typeof id === 'string' ? new ObjectId(id) : id;

@@ -20,6 +20,13 @@ out/
 .env.local
 .env.*.local
 
+# Backup directories
+.backup/
+
+# Sentry
+.sentryclirc
+sentry.properties
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

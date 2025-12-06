@@ -47,7 +47,7 @@ async function handleGet(
   try {
     // Demo mode - return demo data
     if (isDemo()) {
-      const { userId, status } = req.query;
+      const { status } = req.query;
 
       let filteredClaims = [...demoClaims];
 

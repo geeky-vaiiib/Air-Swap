@@ -22,14 +22,14 @@
   "build_ok": true,
   "push": {
     "attempted": true,
-    "success": false,
-    "output": "! [rejected] main -> main (non-fast-forward)\nerror: failed to push some refs to 'https://github.com/geeky-vaiiib/AirSwap.git'\nhint: Updates were rejected because the tip of your current branch is behind\nhint: its remote counterpart. If you want to integrate the remote changes,\nhint: use 'git pull' before pushing again."
+    "success": true,
+    "repository": "https://github.com/geeky-vaiiib/Air-Swap.git",
+    "branch": "main",
+    "objects_pushed": 829,
+    "size": "99.12 MiB",
+    "output": "Successfully pushed to new repository Air-Swap"
   },
-  "warnings": [
-    "Push failed: local branch is behind remote",
-    "User needs to run 'git pull --rebase origin main' before pushing",
-    "No force push attempted per safety rules"
-  ],
+  "warnings": [],
   "errors": [],
   "safety_measures_taken": [
     "Created backup directory: .backup/claims-credits-20251206_110317",

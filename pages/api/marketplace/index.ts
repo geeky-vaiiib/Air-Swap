@@ -48,7 +48,7 @@ export default async function handler(
  * Retrieve active marketplace listings
  */
 async function handleGet(
-  req: NextApiRequest,
+  _req: NextApiRequest,
   res: NextApiResponse<MarketplaceResponse>
 ) {
   try {
