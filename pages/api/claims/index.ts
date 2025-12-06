@@ -10,18 +10,7 @@ import { supabaseAdmin } from '@/lib/supabaseServer';
 import { isDemo } from '@/lib/isDemo';
 import { demoClaims } from '@/demo/demoClaims';
 import type { ClaimResponse } from '@/lib/types/claims';
-
-// Validation schema for creating a claim
-const ClaimInputSchema = z.object({
-  user_id: z.string().uuid('Invalid user ID'),
-  location: z.string().min(1, 'Location is required'),
-  polygon: z.any(), // GeoJSON polygon
-  evidence_cids: z.array(z.string()).optional(),
-  ndvi_before: z.any().optional(),
-  ndvi_after: z.any().optional(),
-  ndvi_delta: z.number().optional(),
-  area: z.number().positive().optional(),
-});
+import { ClaimInputSchema } from '@/lib/validators/claims';
 
 export default async function handler(
   req: NextApiRequest,
@@ -143,7 +132,27 @@ async function handlePost(
       });
     }
 
-    // Real mode - insert into Supabase
+    // Real mode - check rate limiting (10 claims per day per user)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const { count, error: countError } = await supabaseAdmin
+      .from('claims')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', validatedData.user_id)
+      .gte('created_at', today.toISOString());
+
+    if (countError) {
+      console.error('Rate limit check error:', countError);
+      // Continue anyway, don't block on rate limit check failure
+    } else if (count && count >= 10) {
+      return res.status(429).json({
+        success: false,
+        error: 'Rate limit exceeded: Maximum 10 claims per day',
+      });
+    }
+
+    // Insert into Supabase
     const { data, error } = await supabaseAdmin
       .from('claims')
       .insert({
@@ -168,10 +177,16 @@ async function handlePost(
       });
     }
 
+    // Warning if approaching rate limit
+    let message = 'Claim created successfully';
+    if (count && count >= 8) {
+      message += ` (Warning: ${count + 1}/10 daily claims used)`;
+    }
+
     return res.status(201).json({
       success: true,
       data,
-      message: 'Claim created successfully',
+      message,
     });
   } catch (error) {
     console.error('POST /api/claims error:', error);

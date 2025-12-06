@@ -11,12 +11,7 @@ import { getUserFromRequest } from '@/lib/auth';
 import { isDemo } from '@/lib/isDemo';
 import { demoClaims } from '@/demo/demoClaims';
 import type { ClaimResponse } from '@/lib/types/claims';
-
-// Validation schema for verification
-const VerifyInputSchema = z.object({
-  approved: z.boolean(),
-  credits: z.number().int().positive().optional(),
-});
+import { VerifyInputSchema } from '@/lib/validators/claims';
 
 export default async function handler(
   req: NextApiRequest,
@@ -109,7 +104,7 @@ export default async function handler(
 
     if (error) {
       console.error('Supabase update error:', error);
-      
+
       if (error.code === 'PGRST116') {
         return res.status(404).json({
           success: false,
@@ -121,6 +116,59 @@ export default async function handler(
         success: false,
         error: 'Failed to verify claim',
       });
+    }
+
+    // Insert verifier log
+    const { error: logError } = await supabaseAdmin
+      .from('verifier_logs')
+      .insert({
+        claim_id: id,
+        verifier_id: user.id,
+        action: validatedData.approved ? 'approved' : 'rejected',
+        comment: validatedData.comment || null,
+        timestamp: new Date().toISOString(),
+      });
+
+    if (logError) {
+      console.error('Verifier log error:', logError);
+      // Don't fail the request if log insert fails
+    }
+
+    // If approved and credits provided, issue credits
+    if (validatedData.approved && validatedData.credits && data) {
+      const { error: creditError } = await supabaseAdmin
+        .from('credits')
+        .insert({
+          claim_id: id,
+          owner_user_id: data.user_id,
+          token_id: null,
+          metadata_cid: null,
+          amount: validatedData.credits,
+          issued_at: new Date().toISOString(),
+        });
+
+      if (creditError) {
+        console.error('Credit issuance error:', creditError);
+        // Don't fail the request if credit insert fails
+      }
+
+      // Insert transaction log
+      const { error: txError } = await supabaseAdmin
+        .from('transactions')
+        .insert({
+          user_id: data.user_id,
+          tx_hash: null,
+          type: 'issue',
+          metadata: {
+            claim_id: id,
+            credits: validatedData.credits,
+          },
+        });
+
+      if (txError) {
+        console.error('Transaction log error:', txError);
+        // Don't fail the request if transaction log fails
+      }
     }
 
     return res.status(200).json({
