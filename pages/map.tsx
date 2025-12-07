@@ -10,8 +10,8 @@ import MapToolbar from "@/components/map/MapToolbar";
 import RightPanel from "@/components/map/RightPanel";
 import { toast } from "@/hooks/use-toast";
 
-// Lazy load the map component (client-only)
-const LeafletMap = dynamic(() => import("@/components/map/LeafletMap"), {
+// Lazy load the satellite map component (client-only)
+const SatelliteMap = dynamic(() => import("@/components/claims/SatelliteMap"), {
   ssr: false,
   loading: () => (
     <div className="h-full w-full flex items-center justify-center bg-sand">
@@ -23,7 +23,7 @@ const LeafletMap = dynamic(() => import("@/components/map/LeafletMap"), {
         >
           <Leaf className="w-6 h-6 text-forest" />
         </motion.div>
-        <p className="text-muted-foreground">Loading map...</p>
+        <p className="text-muted-foreground">Loading satellite map...</p>
       </div>
     </div>
   ),
@@ -61,7 +61,15 @@ const MapPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [hasPolygon, setHasPolygon] = useState(false);
 
-  const handlePolygonComplete = async (_coordinates: [number, number][]) => {
+  const handlePolygonComplete = async (geoJson: GeoJSON.GeoJsonObject | null) => {
+    if (!geoJson) {
+      // Polygon was cleared
+      setNdviData(null);
+      setIsPanelOpen(false);
+      setHasPolygon(false);
+      return;
+    }
+
     setIsLoading(true);
     setIsPanelOpen(true);
     setHasPolygon(true);
@@ -149,15 +157,12 @@ const MapPage = () => {
                 >
                   <Leaf className="w-6 h-6 text-forest" />
                 </motion.div>
-                <p className="text-muted-foreground">Loading map...</p>
+                <p className="text-muted-foreground">Loading satellite map...</p>
               </div>
             </div>
           }
         >
-          <LeafletMap
-            onPolygonComplete={handlePolygonComplete}
-            drawEnabled={activeTool === "polygon"}
-          />
+          <SatelliteMap onPolygonComplete={handlePolygonComplete} />
         </Suspense>
 
         {/* Loading overlay */}

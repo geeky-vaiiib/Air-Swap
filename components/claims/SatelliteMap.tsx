@@ -16,7 +16,7 @@ const SatelliteMapClient = dynamic(
 );
 
 interface SatelliteMapProps {
-  onPolygonComplete?: (geoJson: any) => void;
+  onPolygonComplete?: (geoJson: GeoJSON.GeoJsonObject | null) => void;
   className?: string;
 }
 

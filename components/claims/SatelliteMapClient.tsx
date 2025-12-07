@@ -5,8 +5,90 @@ import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
-import { GeoSearchControl, OpenStreetMapProvider } from 'leaflet-geosearch';
+import { GeoSearchControl } from 'leaflet-geosearch';
 import 'leaflet-geosearch/dist/geosearch.css';
+import 'leaflet.locatecontrol/dist/L.Control.Locate.css';
+
+// Custom Google Places Provider
+class GooglePlacesProvider {
+  private apiKey: string;
+
+  constructor(apiKey: string) {
+    this.apiKey = apiKey;
+  }
+
+  async search(options: { query: string }): Promise<any[]> {
+    try {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(options.query)}&key=${this.apiKey}`
+      );
+
+      if (!response.ok) {
+        throw new Error('Google Geocoding API request failed');
+      }
+
+      const data = await response.json();
+
+      if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+        throw new Error(`Google Geocoding API error: ${data.status}`);
+      }
+
+      return data.results.slice(0, 5).map((result: any) => ({
+        x: result.geometry.location.lng,
+        y: result.geometry.location.lat,
+        label: result.formatted_address,
+        bounds: result.geometry.viewport ? [
+          [result.geometry.viewport.northeast.lat, result.geometry.viewport.northeast.lng],
+          [result.geometry.viewport.southwest.lat, result.geometry.viewport.southwest.lng]
+        ] : [
+          [result.geometry.location.lat - 0.01, result.geometry.location.lng - 0.01],
+          [result.geometry.location.lat + 0.01, result.geometry.location.lng + 0.01]
+        ],
+      }));
+    } catch (error) {
+      console.warn('Google Geocoding search failed:', error);
+      return [];
+    }
+  }
+
+  async geocode(options: { place_id: string }): Promise<any[]> {
+    try {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/place/details/json?place_id=${options.place_id}&key=${this.apiKey}&fields=geometry`
+      );
+
+      if (!response.ok) {
+        throw new Error('Google Places details API request failed');
+      }
+
+      const data = await response.json();
+
+      if (data.status !== 'OK') {
+        throw new Error(`Google Places details API error: ${data.status}`);
+      }
+
+      const location = data.result.geometry.location;
+      return [{
+        x: location.lng,
+        y: location.lat,
+        label: data.result.name || 'Location',
+        bounds: [
+          [location.lat - 0.01, location.lng - 0.01],
+          [location.lat + 0.01, location.lng + 0.01]
+        ]
+      }];
+    } catch (error) {
+      console.warn('Google Places geocode failed:', error);
+      return [];
+    }
+  }
+}
+
+// Local interface for draw events since leaflet-draw types are incomplete
+interface DrawCreatedEvent extends L.LeafletEvent {
+  layer: L.Layer;
+  layerType: string;
+}
 
 // Fix for default markers in react-leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -17,8 +99,12 @@ L.Icon.Default.mergeOptions({
 });
 
 interface SatelliteMapClientProps {
-  onPolygonComplete?: (geoJson: any) => void;
+  onPolygonComplete?: (geoJson: GeoJSON.GeoJsonObject | null) => void;
 }
+
+// Constants for leaflet-draw events since types are not complete
+const DRAW_EVENT_CREATED = 'draw:created';
+const DRAW_EVENT_DELETED = 'draw:deleted';
 
 function SatelliteMapContent({ onPolygonComplete }: SatelliteMapClientProps) {
   const map = useMap();
@@ -26,27 +112,57 @@ function SatelliteMapContent({ onPolygonComplete }: SatelliteMapClientProps) {
   useEffect(() => {
     if (!map) return;
 
-    // Create and add the geosearch control
-    const provider = new (OpenStreetMapProvider as any)();
-    const searchControl = new (GeoSearchControl as any)({
-      provider: provider,
-      style: 'bar',
-      showMarker: true,
-      showPopup: false,
-      marker: {
-        icon: new L.Icon({
-          iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-          iconSize: [25, 41],
-          iconAnchor: [12, 41],
-          popupAnchor: [1, -34],
-          shadowSize: [41, 41]
-        })
-      },
-      keepResult: false,
-    });
+    // Create and add the Google Places search control
+    try {
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
+      if (apiKey) {
+        const provider = new GooglePlacesProvider(apiKey);
+        const searchControl = new (GeoSearchControl as any)({
+          provider: provider,
+          style: 'bar',
+          showMarker: true,
+          showPopup: false,
+          marker: {
+            icon: new L.Icon({
+              iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+              shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+              iconSize: [25, 41],
+              iconAnchor: [12, 41],
+              popupAnchor: [1, -34],
+              shadowSize: [41, 41]
+            })
+          },
+          keepResult: false,
+          autoComplete: false,
+          autoCompleteDelay: 250,
+        });
 
-    map.addControl(searchControl);
+        map.addControl(searchControl);
+      }
+    } catch (error) {
+      console.warn('Google Places search control failed to initialize:', error);
+      // Continue without search functionality
+    }
+
+    // Add GPS locate control
+    try {
+      // @ts-ignore - leaflet.locatecontrol has no @types package
+      import('leaflet.locatecontrol').then((LocateControlModule: any) => {
+        const LocateControl = LocateControlModule.default;
+        const lc = new LocateControl({
+          position: 'topleft',
+          strings: {
+            title: "Show me where I am"
+          },
+          flyTo: true,
+          keepCurrentZoomLevel: false,
+        });
+        map.addControl(lc);
+      });
+    } catch (error) {
+      console.warn('Locate control failed to initialize:', error);
+      // Continue without locate functionality
+    }
 
     // Import leaflet-draw dynamically to avoid SSR issues
     import('leaflet-draw').then(() => {
@@ -84,9 +200,9 @@ function SatelliteMapContent({ onPolygonComplete }: SatelliteMapClientProps) {
       map.addLayer(drawnItems);
 
       // Handle draw created events
-      map.on((L.Draw as any).Event.CREATED, (event: any) => {
-        const layer = event.layer;
-        const type = event.layerType;
+      map.on(DRAW_EVENT_CREATED, (event: L.LeafletEvent) => {
+        const layer = (event as DrawCreatedEvent).layer as L.Path & { toGeoJSON(): GeoJSON.GeoJsonObject };
+        const type = (event as DrawCreatedEvent).layerType;
 
         if (type === 'polygon') {
           // Clear any previous polygons
@@ -112,7 +228,7 @@ function SatelliteMapContent({ onPolygonComplete }: SatelliteMapClientProps) {
       });
 
       // Handle draw deleted events
-      map.on((L.Draw as any).Event.DELETED, () => {
+      map.on(DRAW_EVENT_DELETED, () => {
         // Clear all polygons from drawn items
         drawnItems.clearLayers();
 
@@ -125,8 +241,8 @@ function SatelliteMapContent({ onPolygonComplete }: SatelliteMapClientProps) {
 
     // Cleanup on unmount
     return () => {
-      map.off((L.Draw as any).Event.CREATED);
-      map.off((L.Draw as any).Event.DELETED);
+      map.off(DRAW_EVENT_CREATED);
+      map.off(DRAW_EVENT_DELETED);
     };
   }, [map, onPolygonComplete]);
 
@@ -142,10 +258,10 @@ export default function SatelliteMapClient({ onPolygonComplete }: SatelliteMapCl
         style={{ height: '100%', width: '100%' }}
         zoomControl={true}
       >
-        {/* Esri World Imagery tile layer for satellite imagery */}
+        {/* Google Maps Satellite tile layer */}
         <TileLayer
-          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-          attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+          url={`https://mt.googleapis.com/vt/lyrs=s&x={x}&y={y}&z={z}&key=${process.env.NEXT_PUBLIC_GOOGLE_API_KEY}`}
+          attribution='Map data ©2025 Google'
         />
         <SatelliteMapContent onPolygonComplete={onPolygonComplete} />
       </MapContainer>
