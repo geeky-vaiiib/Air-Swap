@@ -14,13 +14,12 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 import { getUserFromRequest } from '@/lib/auth';
-import { isDemo } from '@/lib/isDemo';
-import { demoClaims } from '@/demo/demoClaims';
-import { VerifyClaimSchema } from '@/lib/validators/claims';
 import { ClaimsModel } from '@/lib/db/models/claims';
 import { CreditsModel } from '@/lib/db/models/credits';
 import { MarketplaceModel } from '@/lib/db/models/marketplace';
 import { logger } from '@/lib/logger';
+import { UsersModel } from '@/lib/db/models/users';
+import { serverMintOxygenCredits } from '@/lib/blockchain/server/oxygenCreditsServer';
 
 interface ApiResponse {
   success: boolean;
@@ -78,28 +77,6 @@ export default async function handler(
     const validatedData = ApproveClaimSchema.parse(req.body);
     const { credits, notes, createListing, listingPrice, listingQuantity } = validatedData;
 
-    // Demo mode
-    if (isDemo()) {
-      const claimIndex = demoClaims.findIndex(c => c.id === id);
-      if (claimIndex === -1) {
-        return res.status(404).json({
-          success: false,
-          error: 'Claim not found',
-        });
-      }
-
-      return res.status(200).json({
-        success: true,
-        data: {
-          id,
-          status: 'verified',
-          creditsIssued: credits,
-          marketplaceListing: createListing ? { id: `LST-${Date.now()}`, price: listingPrice } : null,
-        },
-        message: 'Demo claim approved successfully',
-      });
-    }
-
     // Fetch claim
     const claim = await ClaimsModel.findById(id);
     if (!claim) {
@@ -135,13 +112,39 @@ export default async function handler(
       });
     }
 
-    // Create credit record
     const creditRecord = await CreditsModel.create({
       claim_id: claim._id!,
       owner_id: claim.contributorId,
       amount: credits,
       metadata_cid: claim.metadataCID,
     });
+
+    // ---------------------------------------------------------
+    // BLOCKCHAIN INTEGRATION: Mint Credits on Polygon Amoy
+    // ---------------------------------------------------------
+    try {
+      const contributor = await UsersModel.findById(claim.contributorId);
+      if (contributor && contributor.wallet_address) {
+        logger.info(`Minting ${credits} credits for ${contributor.wallet_address}...`);
+
+        const mintResult = await serverMintOxygenCredits({
+          recipientAddress: contributor.wallet_address,
+          amount: credits,
+          ndviDelta: 0,
+          claimId: id as string,
+          location: claim.location ? JSON.stringify(claim.location) : "Verified Location"
+        });
+
+        if (mintResult.success) {
+          logger.info(`✅ Blockchain Mint Success: Token ID ${mintResult.tokenId}`);
+        } else {
+          logger.error(`❌ Blockchain Mint Failed: ${mintResult.error}`);
+        }
+      }
+    } catch (chainError) {
+      logger.error('Blockchain integration error in approve.ts:', chainError as Error);
+    }
+    // ---------------------------------------------------------
 
     // Create marketplace listing if requested
     let marketplaceListing = null;

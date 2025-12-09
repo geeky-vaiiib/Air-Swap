@@ -1,10 +1,14 @@
 import React from 'react';
 import dynamic from 'next/dynamic';
 
-const SatelliteMapClient = dynamic(
-  () =>
-    // @ts-ignore - Dynamic import resolution issue with Next.js
-    import('./SatelliteMapClient'),
+// Interface for SatelliteMapClient props (defined in SatelliteMapClient.tsx)
+interface SatelliteMapClientProps {
+  onPolygonComplete?: (geoJson: GeoJSON.GeoJsonObject | null) => void;
+}
+
+// Properly typed dynamic import with explicit component type
+const SatelliteMapClient = dynamic<SatelliteMapClientProps>(
+  () => import('./SatelliteMapClient'),
   {
     ssr: false,
     loading: () => (
@@ -23,7 +27,6 @@ interface SatelliteMapProps {
 export default function SatelliteMap({ onPolygonComplete, className }: SatelliteMapProps) {
   return (
     <div className={`h-full w-full ${className || ''}`}>
-      {/* @ts-ignore - Dynamic component props not inferred by TypeScript */}
       <SatelliteMapClient onPolygonComplete={onPolygonComplete} />
     </div>
   );

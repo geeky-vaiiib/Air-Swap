@@ -9,11 +9,10 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
-import { isDemo } from '@/lib/isDemo';
-import { demoClaims } from '@/demo/demoClaims';
 import type { ClaimResponse } from '@/lib/types/claims';
 import { ClaimInputSchema } from '@/lib/validators/claims';
 import { ClaimsModel } from '@/lib/db/models/claims';
+import { getUserFromRequest } from '@/lib/auth';
 
 export default async function handler(
   req: NextApiRequest,
@@ -45,24 +44,6 @@ async function handleGet(
   res: NextApiResponse<ClaimResponse>
 ) {
   try {
-    // Demo mode - return demo data
-    if (isDemo()) {
-      const { status } = req.query;
-
-      let filteredClaims = [...demoClaims];
-
-      // Filter by status if provided
-      if (status && typeof status === 'string') {
-        filteredClaims = filteredClaims.filter(claim => claim.status === status);
-      }
-
-      return res.status(200).json({
-        success: true,
-        data: filteredClaims,
-        message: 'Demo claims retrieved successfully',
-      });
-    }
-
     // Real mode - query MongoDB
     const { userId, status } = req.query;
 
@@ -108,29 +89,21 @@ async function handlePost(
 ) {
   try {
     // Validate request body
-    const validatedData = ClaimInputSchema.parse(req.body);
+    const validatedData: any = ClaimInputSchema.parse(req.body);
 
-    // Demo mode - return mock created claim
-    if (isDemo()) {
-      const mockClaim = {
-        id: `CLM-${Date.now()}`,
-        location: validatedData.location,
-        area: validatedData.area ? `${validatedData.area} hectares` : 'N/A',
-        status: 'pending' as const,
-        creditsEarned: 0,
-        date: new Date().toISOString().split('T')[0],
-        ndviDelta: validatedData.ndvi_delta,
-      };
+    // Get authenticated user
+    const user = await getUserFromRequest(req);
+    const userId = user ? user.id : (validatedData.user_id ? validatedData.user_id : null);
 
-      return res.status(201).json({
-        success: true,
-        data: mockClaim as any,
-        message: 'Demo claim created successfully',
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required'
       });
     }
 
     // Real mode - check rate limiting (10 claims per day per user)
-    const count = await ClaimsModel.countByUserToday(validatedData.user_id);
+    const count = await ClaimsModel.countByUserToday(userId);
 
     if (count >= 10) {
       return res.status(429).json({
@@ -141,14 +114,17 @@ async function handlePost(
 
     // Insert into MongoDB
     const newClaim = await ClaimsModel.create({
-      user_id: new ObjectId(validatedData.user_id),
+      user_id: new ObjectId(userId),
+      contributorId: new ObjectId(userId),
+      contributorName: user?.full_name || validatedData.contributorName || 'User',
+      contributorEmail: user?.email || validatedData.contributorEmail || 'user@example.com',
+      description: validatedData.description || 'New claim',
+      parentHash: 'hash-' + Date.now(),
       location: validatedData.location,
       polygon: validatedData.polygon,
-      evidence: validatedData.evidence_cids,
-      ndvi_before: validatedData.ndvi_before,
-      ndvi_after: validatedData.ndvi_after,
-      ndvi_delta: validatedData.ndvi_delta,
-      area: validatedData.area,
+      evidence: validatedData.evidence || [],
+      // Legacy fields mapped or ignored
+      areaHectares: validatedData.area || validatedData.areaHectares,
     });
 
     // Serialize for JSON response

@@ -1,6 +1,7 @@
 {
   "name": "airswap-growth",
   "private": true,
+  "type": "module",
   "version": "0.1.0",
   "scripts": {
     "dev": "next dev",
@@ -11,6 +12,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "typecheck": "tsc --noEmit",
+    "reset-db": "node scripts/reset-db.js",
     "security-audit": "node scripts/security-audit.js",
     "security-check": "npm run security-audit",
     "health-check": "curl -f http://localhost:3000/api/health || echo 'Health check failed'",

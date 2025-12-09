@@ -13,8 +13,6 @@ import { ClaimsModel } from '@/lib/db/models/claims';
 import { getUserFromRequest } from '@/lib/auth';
 import { UpdateClaimSchema } from '@/lib/validators/claims';
 import { logger } from '@/lib/logger';
-import { isDemo } from '@/lib/isDemo';
-import { demoClaims } from '@/demo/demoClaims';
 
 interface ApiResponse {
   success: boolean;
@@ -63,22 +61,6 @@ async function handleGet(
       return res.status(400).json({
         success: false,
         error: 'Claim ID is required',
-      });
-    }
-
-    // Demo mode
-    if (isDemo()) {
-      const claim = demoClaims.find(c => c.id === id);
-      if (!claim) {
-        return res.status(404).json({
-          success: false,
-          error: 'Claim not found',
-        });
-      }
-      return res.status(200).json({
-        success: true,
-        data: claim,
-        message: 'Demo claim retrieved successfully',
       });
     }
 
@@ -147,15 +129,6 @@ async function handlePatch(
       return res.status(400).json({
         success: false,
         error: 'Claim ID is required',
-      });
-    }
-
-    // Demo mode
-    if (isDemo()) {
-      return res.status(200).json({
-        success: true,
-        data: { id, message: 'Demo mode: Claim would be updated' },
-        message: 'Demo claim updated successfully',
       });
     }
 

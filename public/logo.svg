@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AirSwap Main Logo - Icon + Wordmark -->
+<!-- Concept: Nature Swap - Two arrows forming a cycle, representing digital-to-organic transformation -->
+<svg width="200" height="60" viewBox="0 0 200 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Icon: The "Nature Swap" - Two arrows forming a cycle -->
+  <defs>
+    <linearGradient id="swapGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#22c55e;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <g id="icon">
+    <!-- Digital Arrow (Tech/Pixels) -->
+    <path d="M15 35L25 25L35 35" stroke="url(#swapGradient)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M25 25L25 45" stroke="url(#swapGradient)" stroke-width="3" stroke-linecap="round"/>
+    
+    <!-- Organic Arrow (Nature/Leaf) - Slightly curved to represent organic flow -->
+    <path d="M45 25Q55 20 55 35Q55 45 65 35" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M55 35L55 15" stroke="#22c55e" stroke-width="3" stroke-linecap="round"/>
+    
+    <!-- Circulation indicator - subtle air flow -->
+    <path d="M30 40Q40 35 50 40Q40 45 30 40Z" fill="#06b6d4" opacity="0.2"/>
+  </g>
+
+  <!-- Wordmark: AirSwap -->
+  <g id="wordmark">
+    <!-- "Air" in electric teal -->
+    <text x="85" y="42" font-family="Helvetica, Arial, sans-serif" font-size="28" font-weight="bold" fill="#06b6d4">
+      Air
+    </text>
+    <!-- "Swap" in deep indigo -->
+    <text x="121" y="42" font-family="Helvetica, Arial, sans-serif" font-size="28" font-weight="bold" fill="#0f172a">
+      Swap
+    </text>
+    
+    <!-- Subtle underline representing air flow/movement -->
+    <path d="M85 48Q145 46 175 48" stroke="#06b6d4" stroke-width="1" fill="none" opacity="0.5"/>
+  </g>
+</svg>

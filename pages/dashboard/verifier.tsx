@@ -7,23 +7,27 @@ import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import VerifierModal from "@/components/dashboard/VerifierModal";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
-import { isDemo } from "@/lib/isDemo";
-import { demoPendingClaims, type DemoPendingClaim } from "@/demo/demoPendingClaims";
+import type { Claim } from "@/lib/types/claims";
 
-interface RealClaim {
-  _id: string;
-  claimId: string;
-  contributorId: string;
-  contributorName: string;
-  contributorEmail: string;
-  location: {
-    country: string;
-    state?: string;
-    city?: string;
-    polygon: any;
-  };
-  areaHectares: number;
-  status: 'pending' | 'verified' | 'rejected';
+interface DashboardClaim {
+  id: string;
+  contributor: string;
+  location: string;
+  ndviDelta: number;
+  date: string;
+  beforeImage: string;
+  afterImage: string;
+  evidence?: {
+    name: string;
+    type: string;
+    url: string;
+    category?: 'before' | 'after';
+  }[];
+}
+
+interface RealClaim extends Claim {
+  contributorName?: string;
+  contributorEmail?: string;
   ndviData?: {
     beforeNDVI?: number;
     afterNDVI?: number;
@@ -31,13 +35,11 @@ interface RealClaim {
     beforeImage?: string;
     afterImage?: string;
   };
-  createdAt: string;
-  verifiedAt?: string;
 }
 
 const VerifierDashboard = () => {
-  const [pendingClaims, setPendingClaims] = useState<DemoPendingClaim[]>([]);
-  const [selectedClaim, setSelectedClaim] = useState<DemoPendingClaim | null>(null);
+  const [pendingClaims, setPendingClaims] = useState<DashboardClaim[]>([]);
+  const [selectedClaim, setSelectedClaim] = useState<DashboardClaim | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -57,65 +59,63 @@ const VerifierDashboard = () => {
     }
 
     try {
-      if (isDemo()) {
-        setPendingClaims(demoPendingClaims);
+      const pendingResponse = await fetch('/api/claims?status=pending');
+      const pendingData = await pendingResponse.json();
+
+      if (pendingData.success) {
+        const claims: RealClaim[] = pendingData.data;
+
+        const transformedClaims = claims.map((claim): DashboardClaim => ({
+          id: claim.id || (claim as any)._id,
+          contributor: claim.contributorName || claim.contributorEmail || 'Unknown',
+          location: typeof claim.location === 'object'
+            ? [(claim.location as any).city, (claim.location as any).state, (claim.location as any).country].filter(Boolean).join(', ') || (claim.location as any).country || 'Unknown Location'
+            : claim.location || 'Unknown Location',
+          ndviDelta: claim.ndvi_delta || 0,
+          date: new Date(claim.created_at).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          }),
+          beforeImage: claim.ndviData?.beforeImage || '',
+          afterImage: claim.ndviData?.afterImage || '',
+          evidence: claim.evidence_cids?.map((cid: string, index: number) => ({
+            name: `Evidence ${index + 1}`,
+            type: 'image/jpeg',
+            url: `https://ipfs.io/ipfs/${cid}`,
+            category: index % 2 === 0 ? 'before' : 'after' // Heuristic mapping
+          }))
+        }));
+
+        setPendingClaims(transformedClaims);
+
+        const [verifiedRes, rejectedRes] = await Promise.all([
+          fetch('/api/claims?status=verified'),
+          fetch('/api/claims?status=rejected'),
+        ]);
+
+        const [verifiedData, rejectedData] = await Promise.all([
+          verifiedRes.json(),
+          rejectedRes.json(),
+        ]);
+
+        const approvedCount = verifiedData.success ? verifiedData.data.length : 0;
+        const rejectedCount = rejectedData.success ? rejectedData.data.length : 0;
+        const total = claims.length + approvedCount + rejectedCount;
+        const approvalRate = total > 0 ? (approvedCount / total) * 100 : 0;
+
         setStats({
-          pending: demoPendingClaims.length,
-          approved: 156,
-          rejected: 12,
-          approvalRate: 92.8,
+          pending: claims.length,
+          approved: approvedCount,
+          rejected: rejectedCount,
+          approvalRate: Number(approvalRate.toFixed(1)),
         });
       } else {
-        const pendingResponse = await fetch('/api/claims/index-v2?status=pending');
-        const pendingData = await pendingResponse.json();
-
-        if (pendingData.success) {
-          const claims: RealClaim[] = pendingData.data;
-          
-          const transformedClaims = claims.map((claim): DemoPendingClaim => ({
-            id: claim.claimId || claim._id,
-            contributor: claim.contributorName || claim.contributorEmail,
-            location: `${claim.location.city ? claim.location.city + ', ' : ''}${claim.location.country}`,
-            ndviDelta: claim.ndviData?.delta ? Number(claim.ndviData.delta.toFixed(2)) : 0,
-            date: new Date(claim.createdAt).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric'
-            }),
-            beforeImage: claim.ndviData?.beforeImage || '',
-            afterImage: claim.ndviData?.afterImage || '',
-          }));
-
-          setPendingClaims(transformedClaims);
-
-          const [verifiedRes, rejectedRes] = await Promise.all([
-            fetch('/api/claims/index-v2?status=verified'),
-            fetch('/api/claims/index-v2?status=rejected'),
-          ]);
-
-          const [verifiedData, rejectedData] = await Promise.all([
-            verifiedRes.json(),
-            rejectedRes.json(),
-          ]);
-
-          const approvedCount = verifiedData.success ? verifiedData.data.length : 0;
-          const rejectedCount = rejectedData.success ? rejectedData.data.length : 0;
-          const total = claims.length + approvedCount + rejectedCount;
-          const approvalRate = total > 0 ? (approvedCount / total) * 100 : 0;
-
-          setStats({
-            pending: claims.length,
-            approved: approvedCount,
-            rejected: rejectedCount,
-            approvalRate: Number(approvalRate.toFixed(1)),
-          });
-        } else {
-          toast({
-            title: "Error",
-            description: pendingData.error || "Failed to fetch claims",
-            variant: "destructive",
-          });
-        }
+        toast({
+          title: "Error",
+          description: pendingData.error || "Failed to fetch claims",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Error fetching claims:', error);
@@ -151,28 +151,68 @@ const VerifierDashboard = () => {
     });
   };
 
-  const handleView = (claim: DemoPendingClaim) => {
+  const handleView = (claim: DashboardClaim) => {
     setSelectedClaim(claim);
     setIsModalOpen(true);
   };
 
-  const handleApprove = () => {
-    toast({
-      title: "Claim Approved! ✓",
-      description: `Claim ${selectedClaim?.id} has been verified and credits issued.`,
-    });
-    setIsModalOpen(false);
-    fetchClaims(true);
+  const handleApprove = async () => {
+    if (!selectedClaim) return;
+
+    try {
+      const res = await fetch(`/api/claims/${selectedClaim.id}/verify`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approved: true, credits: 10, notes: 'Verified via Dashboard' })
+      });
+
+      if (res.ok) {
+        toast({
+          title: "Claim Approved! ✓",
+          description: `Claim ${selectedClaim.id} has been verified and credits issued.`,
+        });
+        setIsModalOpen(false);
+        fetchClaims(true);
+      } else {
+        throw new Error('Verification failed');
+      }
+    } catch (e) {
+      toast({
+        title: "Error",
+        description: "Failed to verify claim.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleReject = () => {
-    toast({
-      title: "Claim Rejected",
-      description: `Claim ${selectedClaim?.id} has been rejected.`,
-      variant: "destructive",
-    });
-    setIsModalOpen(false);
-    fetchClaims(true);
+  const handleReject = async () => {
+    if (!selectedClaim) return;
+
+    try {
+      const res = await fetch(`/api/claims/${selectedClaim.id}/verify`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approved: false, notes: 'Rejected via Dashboard' })
+      });
+
+      if (res.ok) {
+        toast({
+          title: "Claim Rejected",
+          description: `Claim ${selectedClaim.id} has been rejected.`,
+          variant: "destructive",
+        });
+        setIsModalOpen(false);
+        fetchClaims(true);
+      } else {
+        throw new Error('Rejection failed');
+      }
+    } catch (e) {
+      toast({
+        title: "Error",
+        description: "Failed to reject claim.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleRequestMore = () => {
@@ -186,7 +226,7 @@ const VerifierDashboard = () => {
   return (
     <div className="flex h-screen bg-sand">
       <DashboardSidebar role="verifier" />
-      
+
       <main className="flex-1 overflow-y-auto">
         <div className="p-8">
           <motion.div
@@ -325,60 +365,58 @@ const VerifierDashboard = () => {
                       <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
                         <div className="space-y-2">
                           <p>No pending claims at the moment.</p>
-                          {!isDemo() && (
-                            <p className="text-sm">New claims will appear here automatically.</p>
-                          )}
+                          <p className="text-sm">New claims will appear here automatically.</p>
                         </div>
                       </td>
                     </tr>
                   ) : (
                     pendingClaims.map((claim, index) => (
-                    <motion.tr
-                      key={claim.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.3 + index * 0.1 }}
-                      className="hover:bg-forest/5 transition-colors"
-                    >
-                      <td className="px-6 py-4">
-                        <span className="font-mono text-sm text-forest">
-                          {claim.id}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-forest/10 flex items-center justify-center">
-                            <User className="w-4 h-4 text-forest" />
-                          </div>
-                          <span className="text-sm text-forest">
-                            {claim.contributor}
+                      <motion.tr
+                        key={claim.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.3 + index * 0.1 }}
+                        className="hover:bg-forest/5 transition-colors"
+                      >
+                        <td className="px-6 py-4">
+                          <span className="font-mono text-sm text-forest">
+                            {claim.id}
                           </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-muted-foreground">
-                        {claim.location}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-teal/20 text-teal text-sm font-medium">
-                          <TrendingUp className="w-3 h-3" />
-                          +{claim.ndviDelta}%
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-muted-foreground">
-                        {claim.date}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleView(claim)}
-                        >
-                          <Eye className="w-4 h-4 mr-2" />
-                          Review
-                        </Button>
-                      </td>
-                    </motion.tr>
-                  ))
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-forest/10 flex items-center justify-center">
+                              <User className="w-4 h-4 text-forest" />
+                            </div>
+                            <span className="text-sm text-forest">
+                              {claim.contributor}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-muted-foreground">
+                          {claim.location}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-teal/20 text-teal text-sm font-medium">
+                            <TrendingUp className="w-3 h-3" />
+                            +{claim.ndviDelta}%
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-muted-foreground">
+                          {claim.date}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleView(claim)}
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            Review
+                          </Button>
+                        </td>
+                      </motion.tr>
+                    ))
                   )}
                 </tbody>
               </table>

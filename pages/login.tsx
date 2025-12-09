@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
 import { motion } from "framer-motion";
-import { Leaf, Mail, Lock, ArrowRight } from "lucide-react";
+import { Mail, Lock, ArrowRight } from "lucide-react";
+import Logo from "@/components/ui/Logo";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import GradientBackground from "@/components/layout/GradientBackground";
-import { isDemo } from "@/lib/isDemo";
 import { useToast } from "@/hooks/use-toast";
 
 const Login = () => {
@@ -21,16 +21,6 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Demo mode - skip API call
-    if (isDemo()) {
-      toast({
-        title: "Demo Mode",
-        description: "Redirecting to dashboard...",
-      });
-      router.push("/dashboard/contributor");
-      return;
-    }
 
     setIsLoading(true);
 
@@ -98,14 +88,10 @@ const Login = () => {
           transition={{ duration: 0.6 }}
           className="w-full max-w-md space-y-8"
         >
+
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-forest to-emerald flex items-center justify-center">
-              <Leaf className="w-6 h-6 text-teal" />
-            </div>
-            <span className="font-display text-2xl font-bold text-forest">
-              AirSwap
-            </span>
+          <Link href="/" className="flex items-center gap-2 mb-8 justify-center">
+            <Logo variant="icon" size="xl" />
           </Link>
 
           <div>
@@ -186,7 +172,7 @@ const Login = () => {
             >
               <div className="text-center space-y-6">
                 <div className="w-20 h-20 rounded-2xl bg-teal/20 flex items-center justify-center mx-auto">
-                  <Leaf className="w-10 h-10 text-teal" />
+                  <Logo variant="icon" size="xl" />
                 </div>
                 <div>
                   <h2 className="text-2xl font-display font-bold text-forest mb-2">

@@ -9,7 +9,6 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 import { getUserFromRequest } from '@/lib/auth';
-import { isDemo } from '@/lib/isDemo';
 import { MarketplaceModel } from '@/lib/db/models/marketplace';
 import { CreditsModel } from '@/lib/db/models/credits';
 import { TransactionsModel } from '@/lib/db/models/transactions';
@@ -35,19 +34,6 @@ export default async function handler(
   }
 
   try {
-    // Demo mode - return mock purchase
-    if (isDemo()) {
-      return res.status(200).json({
-        success: true,
-        data: {
-          listing_id: req.body.listing_id,
-          quantity: req.body.quantity,
-          status: 'completed',
-        },
-        message: 'Demo purchase completed successfully',
-      });
-    }
-
     // Authenticate user
     const user = await getUserFromRequest(req);
     if (!user) {

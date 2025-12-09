@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AirSwap Monochrome Logo - For official documents -->
+<svg width="200" height="60" viewBox="0 0 200 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Monochrome: All elements in solid black -->
+  
+  <g id="icon">
+    <!-- Digital Arrow -->
+    <path d="M15 35L25 25L35 35" stroke="#000000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M25 25L25 45" stroke="#000000" stroke-width="3" stroke-linecap="round"/>
+    
+    <!-- Organic Arrow -->
+    <path d="M45 25Q55 20 55 35Q55 45 65 35" stroke="#000000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M55 35L55 15" stroke="#000000" stroke-width="3" stroke-linecap="round"/>
+    
+    <!-- Circulation indicator -->
+    <path d="M30 40Q40 35 50 40Q40 45 30 40Z" fill="#000000" opacity="0.3"/>
+  </g>
+
+  <!-- Wordmark: AirSwap - Solid Black -->
+  <g id="wordmark">
+    <text x="85" y="42" font-family="Helvetica, Arial, sans-serif" font-size="28" font-weight="bold" fill="#000000">
+      AirSwap
+    </text>
+    
+    <!-- Clean underline for emphasis -->
+    <path d="M85 48L175 48" stroke="#000000" stroke-width="1.5" stroke-linecap="round"/>
+  </g>
+</svg>

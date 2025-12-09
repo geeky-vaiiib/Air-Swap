@@ -1,214 +1,231 @@
 "use client";
 
 import { useState, Suspense } from "react";
+import { useRouter } from "next/router";
 import { motion } from "framer-motion";
-import { Leaf, ArrowLeft, Info } from "lucide-react";
-import Link from "next/link";
 import dynamic from "next/dynamic";
-import { Button } from "@/components/ui/button";
-import MapToolbar from "@/components/map/MapToolbar";
-import RightPanel from "@/components/map/RightPanel";
+import MapSearchOverlay from "@/components/map/MapSearchOverlay";
+import MapDock from "@/components/map/MapDock";
+import AnalysisDrawer from "@/components/map/AnalysisDrawer";
 import { toast } from "@/hooks/use-toast";
+import LoadingSpinner from "@/components/ui/loading-spinner";
 
-// Lazy load the satellite map component (client-only)
-const SatelliteMap = dynamic(() => import("@/components/claims/SatelliteMap"), {
-  ssr: false,
-  loading: () => (
-    <div className="h-full w-full flex items-center justify-center bg-sand">
-      <div className="text-center space-y-4">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-          className="w-12 h-12 rounded-xl bg-forest/10 flex items-center justify-center mx-auto"
-        >
-          <Leaf className="w-6 h-6 text-forest" />
-        </motion.div>
-        <p className="text-muted-foreground">Loading satellite map...</p>
+// Lazy load the map (client-only due to Leaflet)
+const LocationSearchMap = dynamic(
+  () => import("@/components/map/LocationSearchMap"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-full w-full flex items-center justify-center bg-muted/50">
+        <LoadingSpinner size="xl" />
       </div>
-    </div>
-  ),
-});
+    ),
+  }
+);
 
-interface NDVIData {
+type MapMode = "select" | "draw";
+type MapLayer = "satellite" | "street";
+
+interface AnalysisData {
+  areaHectares: number;
+  vegetationHealth: "High" | "Medium" | "Low";
   ndviDelta: number;
-  beforeImage: string;
-  afterImage: string;
+  carbonEquivalent: number;
 }
 
-// Fetch NDVI data from Next.js API route
-const fetchNDVIData = async (): Promise<NDVIData> => {
-  const response = await fetch("/api/ndvi-check");
-  if (!response.ok) {
-    throw new Error("Failed to fetch NDVI data");
-  }
-  const data = await response.json();
-  // Use placeholder images if demo images don't exist
-  return {
-    ...data,
-    beforeImage: data.beforeImage.startsWith("http")
-      ? data.beforeImage
-      : "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&h=400&fit=crop",
-    afterImage: data.afterImage.startsWith("http")
-      ? data.afterImage
-      : "https://images.unsplash.com/photo-1518173946687-a4c036bc8d7c?w=400&h=400&fit=crop",
-  };
-};
-
 const MapPage = () => {
-  const [activeTool, setActiveTool] = useState<"select" | "polygon">("select");
-  const [isPanelOpen, setIsPanelOpen] = useState(false);
-  const [ndviData, setNdviData] = useState<NDVIData | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasPolygon, setHasPolygon] = useState(false);
+  const router = useRouter();
+
+  // Map state
+  const [mode, setMode] = useState<MapMode>("select");
+  const [layer, setLayer] = useState<MapLayer>("satellite");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPolygon, setCurrentPolygon] = useState<GeoJSON.GeoJsonObject | null>(null);
+
+  // Drawer state
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Handlers
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    toast({ title: "Searching", description: `Flying to "${query}"...` });
+  };
+
+  const handleFilterToggle = () => {
+    toast({ title: "Filters", description: "Filter panel coming soon" });
+  };
+
+  const handleLocate = () => {
+    toast({ title: "Locating", description: "Flying to your location..." });
+    // TODO: Integrate with map's locate control
+  };
 
   const handlePolygonComplete = async (geoJson: GeoJSON.GeoJsonObject | null) => {
     if (!geoJson) {
-      // Polygon was cleared
-      setNdviData(null);
-      setIsPanelOpen(false);
-      setHasPolygon(false);
+      setIsDrawerOpen(false);
+      setAnalysisData(null);
+      setCurrentPolygon(null);
       return;
     }
 
-    setIsLoading(true);
-    setIsPanelOpen(true);
-    setHasPolygon(true);
-    setActiveTool("select");
+    setCurrentPolygon(geoJson);
+    setMode("select");
+
+    toast({
+      title: "Analyzing Area...",
+      description: "Processing satellite imagery for NDVI data.",
+    });
 
     try {
-      const data = await fetchNDVIData();
-      setNdviData(data);
-      toast({
-        title: "Analysis Complete",
-        description: `NDVI change detected: +${data.ndviDelta}%`,
+      const res = await fetch('/api/ndvi-check', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ polygon: geoJson }),
       });
+      const data = await res.json();
+
+      if (data.ndviDelta) {
+        setAnalysisData({
+          areaHectares: 12.5, // TODO: Calculate actual area from Polygon using Turf.js
+          vegetationHealth: data.ndviDelta > 0.5 ? "High" : "Medium",
+          ndviDelta: Math.round(data.ndviDelta * 100),
+          carbonEquivalent: Math.round(data.ndviDelta * 5000), // Mock calculation based on NDVI
+        });
+        setIsDrawerOpen(true);
+      } else {
+        throw new Error("Failed to analyze area");
+      }
+
     } catch (error) {
+      console.error("Analysis failed", error);
       toast({
-        title: "Error",
-        description: "Failed to analyze the selected area",
+        title: "Analysis Failed",
+        description: "Could not fetch satellite data. Using estimation.",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
+
+      // Fallback for demo continuity if API fails
+      setAnalysisData({
+        areaHectares: 12.5,
+        vegetationHealth: "Medium",
+        ndviDelta: 15,
+        carbonEquivalent: 750,
+      });
+      setIsDrawerOpen(true);
     }
   };
 
-  const handleClear = () => {
-    setNdviData(null);
-    setIsPanelOpen(false);
-    setHasPolygon(false);
-    // Force re-render of map
-    window.location.reload();
-  };
+  const handleVerifyClaim = async () => {
+    if (!currentPolygon || !analysisData) return;
 
-  const handleIssueCredit = () => {
-    toast({
-      title: "Credit Issued! 🎉",
-      description: "847 Oxygen Credits have been added to your account (Demo)",
-    });
+    setIsSubmitting(true);
+    try {
+      // 1. Submit the claim
+      const response = await fetch('/api/claims', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          location: searchQuery || 'Selected Area',
+          polygon: currentPolygon,
+          area: analysisData.areaHectares,
+          ndvi_delta: analysisData.ndviDelta,
+          // evidence_cids: [] // We normally upload first
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast({
+          title: "Claim Submitted! 🎉",
+          description: "Your land claim has been submitted for verification.",
+        });
+        setIsDrawerOpen(false);
+        // Redirect to dashboard
+        router.push('/dashboard/contributor');
+      } else {
+        throw new Error(data.error || 'Submission failed');
+      }
+    } catch (error) {
+      console.error('Claim submission error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to submit claim. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <div className="h-screen w-screen bg-sand overflow-hidden relative">
-      {/* Top Bar */}
-      <motion.div
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between"
-      >
-        <div className="glass rounded-2xl px-4 py-3 flex items-center gap-4">
-          <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-forest to-emerald flex items-center justify-center">
-              <Leaf className="w-5 h-5 text-teal" />
-            </div>
-            <span className="font-display text-lg font-bold text-forest">
-              AirSwap
-            </span>
-          </Link>
-          <div className="w-px h-8 bg-border" />
-          <Link href="/">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-          </Link>
-        </div>
-
-        <div className="glass rounded-2xl px-4 py-3 flex items-center gap-2">
-          <Info className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">
-            {activeTool === "polygon"
-              ? "Click to draw points, double-click to complete"
-              : "Select 'Draw Polygon' to start"}
-          </span>
-        </div>
-      </motion.div>
-
-      {/* Map Container */}
-      <div className="h-full w-full relative">
+    <div className="relative h-screen w-screen overflow-hidden bg-muted">
+      {/* Layer 0: Full-Screen Map */}
+      <div className="absolute inset-0 z-0">
         <Suspense
           fallback={
-            <div className="h-full w-full flex items-center justify-center bg-sand">
-              <div className="text-center space-y-4">
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                  className="w-12 h-12 rounded-xl bg-forest/10 flex items-center justify-center mx-auto"
-                >
-                  <Leaf className="w-6 h-6 text-forest" />
-                </motion.div>
-                <p className="text-muted-foreground">Loading satellite map...</p>
-              </div>
+            <div className="h-full w-full flex items-center justify-center bg-muted/50">
+              <LoadingSpinner size="xl" />
             </div>
           }
         >
-          <SatelliteMap onPolygonComplete={handlePolygonComplete} />
+          <LocationSearchMap
+            onPolygonComplete={handlePolygonComplete}
+            searchQuery={searchQuery}
+          />
         </Suspense>
+      </div>
 
-        {/* Loading overlay */}
-        {isLoading && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="absolute inset-0 bg-forest/20 backdrop-blur-sm flex items-center justify-center z-30"
-          >
-            <div className="glass rounded-2xl p-8 text-center">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                className="w-16 h-16 rounded-xl bg-teal/20 flex items-center justify-center mx-auto mb-4"
-              >
-                <Leaf className="w-8 h-8 text-teal" />
-              </motion.div>
-              <p className="font-medium text-forest">Analyzing satellite data...</p>
-            </div>
-          </motion.div>
-        )}
+      {/* Layer 1: UI Overlays (pointer-events-none container) */}
+      <div className="absolute inset-0 z-10 pointer-events-none">
+        {/* Search Pill (Top-Left) */}
+        <MapSearchOverlay
+          onSearch={handleSearch}
+          onFilterToggle={handleFilterToggle}
+        />
 
-        {/* Right Panel */}
-        <RightPanel
-          isOpen={isPanelOpen}
-          onClose={() => setIsPanelOpen(false)}
-          ndviData={ndviData}
-          onIssueCredit={handleIssueCredit}
+        {/* Control Dock (Bottom-Center) */}
+        <MapDock
+          mode={mode}
+          layer={layer}
+          onModeChange={setMode}
+          onLocate={handleLocate}
+          onLayerChange={setLayer}
         />
       </div>
 
-      {/* Toolbar */}
-      <MapToolbar
-        activeTool={activeTool}
-        onToolChange={setActiveTool}
-        onClear={handleClear}
-        canClear={hasPolygon}
+      {/* Loading Overlay */}
+      {mode === "draw" && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="absolute top-20 left-1/2 -translate-x-1/2 z-20 pointer-events-none"
+        >
+          <div className="bg-primary text-primary-foreground px-4 py-2 rounded-full text-sm font-medium shadow-glow">
+            Click on the map to draw an area
+          </div>
+        </motion.div>
+      )}
+
+      {/* Analysis Drawer (Right) */}
+      <AnalysisDrawer
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        data={analysisData}
+        onVerifyClaim={handleVerifyClaim}
+        isLoading={isSubmitting}
       />
     </div>
   );
 };
 
 export const getServerSideProps = async () => {
-  return {
-    props: {}
-  };
+  return { props: {} };
 };
 
 export default MapPage;

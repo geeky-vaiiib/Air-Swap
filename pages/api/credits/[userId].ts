@@ -6,8 +6,6 @@
  */
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { isDemo } from '@/lib/isDemo';
-import { demoCredits } from '@/demo/demoCredits';
 import { CreditsModel } from '@/lib/db/models/credits';
 
 interface CreditResponse {
@@ -36,15 +34,6 @@ export default async function handler(
       return res.status(400).json({
         success: false,
         error: 'Invalid user ID',
-      });
-    }
-
-    // Demo mode - return demo data
-    if (isDemo()) {
-      return res.status(200).json({
-        success: true,
-        data: demoCredits,
-        message: 'Demo credits retrieved successfully',
       });
     }
 

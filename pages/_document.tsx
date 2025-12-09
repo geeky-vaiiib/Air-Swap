@@ -24,6 +24,10 @@ export default function Document() {
         {/* Character encoding */}
         <meta charSet="utf-8" />
 
+        {/* Favicon */}
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="apple-touch-icon" href="/app-icon.svg" />
+
         {/* Prevent clickjacking */}
         <meta httpEquiv="X-Frame-Options" content="DENY" />
 

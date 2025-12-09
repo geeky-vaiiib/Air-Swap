@@ -8,16 +8,24 @@ import 'leaflet-draw/dist/leaflet.draw.css';
 import { GeoSearchControl } from 'leaflet-geosearch';
 import 'leaflet-geosearch/dist/geosearch.css';
 import 'leaflet.locatecontrol/dist/L.Control.Locate.css';
+import {
+  SearchProvider,
+  SearchResult,
+  DrawCreatedEvent,
+  GoogleGeocodeResponse,
+  GoogleGeocodeResult,
+  GooglePlacesDetailsResponse,
+} from '../../types/leaflet-custom';
 
 // Custom Google Places Provider
-class GooglePlacesProvider {
+class GooglePlacesProvider implements SearchProvider {
   private apiKey: string;
 
   constructor(apiKey: string) {
     this.apiKey = apiKey;
   }
 
-  async search(options: { query: string }): Promise<any[]> {
+  async search(options: { query: string }): Promise<SearchResult[]> {
     try {
       const response = await fetch(
         `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(options.query)}&key=${this.apiKey}`
@@ -27,13 +35,13 @@ class GooglePlacesProvider {
         throw new Error('Google Geocoding API request failed');
       }
 
-      const data = await response.json();
+      const data: GoogleGeocodeResponse = await response.json();
 
       if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
         throw new Error(`Google Geocoding API error: ${data.status}`);
       }
 
-      return data.results.slice(0, 5).map((result: any) => ({
+      return data.results.slice(0, 5).map((result: GoogleGeocodeResult): SearchResult => ({
         x: result.geometry.location.lng,
         y: result.geometry.location.lat,
         label: result.formatted_address,
@@ -51,7 +59,7 @@ class GooglePlacesProvider {
     }
   }
 
-  async geocode(options: { place_id: string }): Promise<any[]> {
+  async geocode(options: { place_id: string }): Promise<SearchResult[]> {
     try {
       const response = await fetch(
         `https://maps.googleapis.com/maps/api/place/details/json?place_id=${options.place_id}&key=${this.apiKey}&fields=geometry`
@@ -61,7 +69,7 @@ class GooglePlacesProvider {
         throw new Error('Google Places details API request failed');
       }
 
-      const data = await response.json();
+      const data: GooglePlacesDetailsResponse = await response.json();
 
       if (data.status !== 'OK') {
         throw new Error(`Google Places details API error: ${data.status}`);
@@ -84,12 +92,6 @@ class GooglePlacesProvider {
   }
 }
 
-// Local interface for draw events since leaflet-draw types are incomplete
-interface DrawCreatedEvent extends L.LeafletEvent {
-  layer: L.Layer;
-  layerType: string;
-}
-
 // Fix for default markers in react-leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -102,7 +104,7 @@ interface SatelliteMapClientProps {
   onPolygonComplete?: (geoJson: GeoJSON.GeoJsonObject | null) => void;
 }
 
-// Constants for leaflet-draw events since types are not complete
+// Constants for leaflet-draw events
 const DRAW_EVENT_CREATED = 'draw:created';
 const DRAW_EVENT_DELETED = 'draw:deleted';
 
@@ -117,9 +119,10 @@ function SatelliteMapContent({ onPolygonComplete }: SatelliteMapClientProps) {
       const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
       if (apiKey) {
         const provider = new GooglePlacesProvider(apiKey);
-        const searchControl = new (GeoSearchControl as any)({
-          provider: provider,
-          style: 'bar',
+        // @ts-ignore - leaflet-geosearch L.GeoSearchControl is not properly typed in @types/leaflet-geosearch
+        const searchControl = new GeoSearchControl({
+          provider,
+          style: 'bar' as const,
           showMarker: true,
           showPopup: false,
           marker: {
@@ -147,7 +150,7 @@ function SatelliteMapContent({ onPolygonComplete }: SatelliteMapClientProps) {
     // Add GPS locate control
     try {
       // @ts-ignore - leaflet.locatecontrol has no @types package
-      import('leaflet.locatecontrol').then((LocateControlModule: any) => {
+      import('leaflet.locatecontrol').then((LocateControlModule) => {
         const LocateControl = LocateControlModule.default;
         const lc = new LocateControl({
           position: 'topleft',
@@ -178,10 +181,10 @@ function SatelliteMapContent({ onPolygonComplete }: SatelliteMapClientProps) {
             allowIntersection: false,
             showArea: true,
             shapeOptions: {
-              color: '#16a34a', // Tailwind green-600
+              color: '#10b981', // brand-nature
               weight: 3,
               opacity: 1,
-              fillOpacity: 0.1,
+              fillOpacity: 0.2,
             },
           },
           marker: false,
@@ -213,10 +216,10 @@ function SatelliteMapContent({ onPolygonComplete }: SatelliteMapClientProps) {
 
           // Style the polygon
           layer.setStyle({
-            color: '#16a34a',
+            color: '#10b981', // brand-nature
             weight: 3,
             opacity: 1,
-            fillOpacity: 0.1,
+            fillOpacity: 0.2,
           });
 
           // Convert to GeoJSON and call the callback
@@ -258,10 +261,14 @@ export default function SatelliteMapClient({ onPolygonComplete }: SatelliteMapCl
         style={{ height: '100%', width: '100%' }}
         zoomControl={true}
       >
-        {/* Google Maps Satellite tile layer */}
+        {/* Mapbox Satellite (High-Resolution, Fresh Imagery with Deep Zoom) */}
         <TileLayer
-          url={`https://mt.googleapis.com/vt/lyrs=s&x={x}&y={y}&z={z}&key=${process.env.NEXT_PUBLIC_GOOGLE_API_KEY}`}
-          attribution='Map data ©2025 Google'
+          url={`https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/{z}/{x}/{y}?access_token=${process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN}`}
+          attribution='© <a href="https://www.mapbox.com/about/maps/">Mapbox</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://www.maxar.com/">Maxar</a>'
+          tileSize={512}
+          zoomOffset={-1}
+          maxNativeZoom={18}
+          maxZoom={22}
         />
         <SatelliteMapContent onPolygonComplete={onPolygonComplete} />
       </MapContainer>

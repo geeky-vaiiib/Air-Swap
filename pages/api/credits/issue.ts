@@ -10,7 +10,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 import { getUserFromRequest } from '@/lib/auth';
-import { isDemo } from '@/lib/isDemo';
+
 import { IssueCreditSchema } from '@/lib/validators/credits';
 import { CreditsModel } from '@/lib/db/models/credits';
 import { TransactionsModel } from '@/lib/db/models/transactions';
@@ -38,25 +38,7 @@ export default async function handler(
     // Validate request body
     const validatedData = IssueCreditSchema.parse(req.body);
 
-    // Demo mode - return mock credit
-    if (isDemo()) {
-      const mockCredit = {
-        id: `CRD-${Date.now()}`,
-        claim_id: validatedData.claim_id,
-        owner_user_id: validatedData.user_id,
-        token_id: null,
-        metadata_cid: validatedData.metadata_cid || null,
-        amount: validatedData.credits,
-        ndvi_delta: validatedData.ndvi_delta,
-        issued_at: new Date().toISOString(),
-      };
 
-      return res.status(201).json({
-        success: true,
-        data: mockCredit,
-        message: 'Demo credit issued successfully',
-      });
-    }
 
     // Real mode - check user role
     const user = await getUserFromRequest(req);

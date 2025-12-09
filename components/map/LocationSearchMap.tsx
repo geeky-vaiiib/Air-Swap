@@ -23,22 +23,24 @@ const LocationSearchMapClient = dynamic(
 );
 
 interface LocationSearchMapProps {
-  onLocationSelect?: (latlng: [number, number]) => void;
+  // onLocationSelect?: (latlng: [number, number]) => void;
   onPolygonComplete?: (geoJson: any) => void;
   className?: string;
+  searchQuery?: string;
 }
 
 export default function LocationSearchMap({
-  onLocationSelect,
+
   onPolygonComplete,
-  className
+  className,
+  searchQuery
 }: LocationSearchMapProps) {
   return (
     <div className={`h-full w-full ${className || ''}`}>
       {/* @ts-ignore - Dynamic component props not inferred by TypeScript */}
       <LocationSearchMapClient
-        onLocationSelect={onLocationSelect}
         onPolygonComplete={onPolygonComplete}
+        searchQuery={searchQuery}
       />
     </div>
   );

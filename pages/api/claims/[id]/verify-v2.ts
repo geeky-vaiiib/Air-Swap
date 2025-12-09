@@ -13,8 +13,6 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 import { getUserFromRequest } from '@/lib/auth';
-import { isDemo } from '@/lib/isDemo';
-import { demoClaims } from '@/demo/demoClaims';
 import { VerifyClaimSchema } from '@/lib/validators/claims';
 import { ClaimsModel } from '@/lib/db/models/claims';
 import { CreditsModel } from '@/lib/db/models/credits';
@@ -66,27 +64,6 @@ export default async function handler(
     // Validate request body
     const validatedData = VerifyClaimSchema.parse(req.body);
     const { approved, credits, notes } = validatedData;
-
-    // Demo mode
-    if (isDemo()) {
-      const claimIndex = demoClaims.findIndex(c => c.id === id);
-      if (claimIndex === -1) {
-        return res.status(404).json({
-          success: false,
-          error: 'Claim not found',
-        });
-      }
-
-      return res.status(200).json({
-        success: true,
-        data: {
-          id,
-          status: approved ? 'verified' : 'rejected',
-          credits: approved ? credits : 0,
-        },
-        message: `Demo claim ${approved ? 'approved' : 'rejected'} successfully`,
-      });
-    }
 
     // Fetch claim
     const claim = await ClaimsModel.findById(id);

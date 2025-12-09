@@ -7,25 +7,47 @@ import { Plus, TrendingUp, Coins, MapPin, ArrowRight } from "lucide-react";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import ClaimCard from "@/components/dashboard/ClaimCard";
 import { Button } from "@/components/ui/button";
-import { isDemo } from "@/lib/isDemo";
-import { demoClaims, type DemoClaim } from "@/demo/demoClaims";
+import type { Claim } from "@/lib/types/claims";
+import { useToast } from "@/hooks/use-toast";
 
 const ContributorDashboard = () => {
-  const [claims, setClaims] = useState<DemoClaim[]>([]);
+  const [claims, setClaims] = useState<Claim[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
-    if (isDemo()) {
-      setClaims(demoClaims);
-    } else {
-      // TODO: Fetch real claims from API
-      // fetch('/api/claims').then(res => res.json()).then(setClaims);
-      setClaims([]);
-    }
-  }, []);
+    const fetchClaims = async () => {
+      try {
+        const response = await fetch('/api/claims');
+        if (!response.ok) throw new Error('Failed to fetch claims');
+        const data = await response.json();
+        setClaims(data.data || []);
+      } catch (error) {
+        console.error('Error fetching claims:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load claims. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchClaims();
+  }, [toast]);
+
+  // Calculate stats
+  const totalCredits = 0; // TODO: Fetch from credits API
+  const activeClaims = claims.filter(c => c.status === 'pending' || c.status === 'verified').length;
+  // const avgNdvi = claims.length > 0
+  //   ? claims.reduce((acc, curr) => acc + (curr.ndviDelta || 0), 0) / claims.length
+  //   : 0;
+
   return (
     <div className="flex h-screen bg-sand">
       <DashboardSidebar role="contributor" />
-      
+
       <main className="flex-1 overflow-y-auto">
         <div className="p-8">
           {/* Header */}
@@ -56,7 +78,7 @@ const ContributorDashboard = () => {
                 </div>
               </div>
               <div className="text-2xl font-display font-bold text-forest">
-                1,370
+                {totalCredits.toLocaleString()}
               </div>
               <div className="text-sm text-muted-foreground">Total Credits</div>
             </div>
@@ -66,10 +88,10 @@ const ContributorDashboard = () => {
                 <div className="w-12 h-12 rounded-xl bg-forest/10 flex items-center justify-center">
                   <MapPin className="w-6 h-6 text-forest" />
                 </div>
-                <span className="text-xs text-forest font-medium">3 active</span>
+                <span className="text-xs text-forest font-medium">{activeClaims} active</span>
               </div>
               <div className="text-2xl font-display font-bold text-forest">
-                5
+                {claims.length}
               </div>
               <div className="text-sm text-muted-foreground">Total Claims</div>
             </div>
@@ -82,9 +104,9 @@ const ContributorDashboard = () => {
                 <span className="text-xs text-emerald font-medium">Healthy</span>
               </div>
               <div className="text-2xl font-display font-bold text-forest">
-                +11.5%
+                High
               </div>
-              <div className="text-sm text-muted-foreground">Avg. NDVI Growth</div>
+              <div className="text-sm text-muted-foreground">Vegetation Health</div>
             </div>
           </motion.div>
 
@@ -132,24 +154,38 @@ const ContributorDashboard = () => {
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {claims.length === 0 ? (
-                <div className="col-span-full text-center py-12 text-muted-foreground">
-                  No claims found. {isDemo() ? "Demo mode is enabled but no demo data available." : "Submit your first claim to get started."}
-                </div>
-              ) : (
-                claims.map((claim, index) => (
-                <motion.div
-                  key={claim.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 + index * 0.1 }}
-                >
-                  <ClaimCard {...claim} />
-                </motion.div>
-              ))
-              )}
-            </div>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-forest"></div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {claims.length === 0 ? (
+                  <div className="col-span-full text-center py-12 text-muted-foreground">
+                    No claims found. Submit your first claim to get started.
+                  </div>
+                ) : (
+                  claims.map((claim, index) => (
+                    <motion.div
+                      key={claim.id || (claim as any)._id || index}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.4 + index * 0.1 }}
+                    >
+                      <ClaimCard
+                        id={claim.id || (claim as any)._id || 'unknown'}
+                        location={claim.location}
+                        area={claim.area ? `${claim.area} ha` : 'N/A'}
+                        date={new Date(claim.created_at || Date.now()).toLocaleDateString()}
+                        status={claim.status}
+                        credits={claim.credits}
+                        ndviDelta={claim.ndvi_delta}
+                      />
+                    </motion.div>
+                  ))
+                )}
+              </div>
+            )}
           </motion.div>
         </div>
       </main>

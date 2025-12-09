@@ -8,6 +8,9 @@
   "devDependencies": {
     "@matterlabs/hardhat-zksync-solc": "^1.1.14",
     "@matterlabs/hardhat-zksync-verify": "^1.7.1",
+    "@nomicfoundation/hardhat-chai-matchers": "^2.1.0",
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
+    "chai": "^4.5.0",
     "hardhat": "^2.19.1"
   },
   "dependencies": {

@@ -34,9 +34,8 @@ const MarketplaceCard = ({
                 key={i}
                 className="aspect-square rounded-sm"
                 style={{
-                  backgroundColor: `hsl(${150 + Math.random() * 20}, ${
-                    60 + Math.random() * 30
-                  }%, ${40 + Math.random() * 30}%)`,
+                  backgroundColor: `hsl(${150 + (i * 13) % 20}, ${60 + (i * 7) % 30
+                    }%, ${40 + (i * 5) % 30}%)`,
                 }}
               />
             ))}

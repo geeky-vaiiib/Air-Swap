@@ -1,20 +1,17 @@
 import Link from "next/link";
-import { Leaf, Github, Twitter, Linkedin } from "lucide-react";
+import Logo from "@/components/ui/Logo";
+import { Github, Twitter, Linkedin } from "lucide-react";
 
 const Footer = () => {
   return (
+
     <footer className="bg-forest-dark py-16">
       <div className="container mx-auto px-4">
         <div className="grid md:grid-cols-4 gap-12">
           {/* Brand */}
           <div className="space-y-4">
             <Link href="/" className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal to-emerald flex items-center justify-center">
-                <Leaf className="w-5 h-5 text-forest" />
-              </div>
-              <span className="font-display text-xl font-bold text-white">
-                AirSwap
-              </span>
+              <Logo variant="full" size="lg" />
             </Link>
             <p className="text-white/60 text-sm leading-relaxed">
               Verifying vegetation growth and issuing Oxygen Credits through

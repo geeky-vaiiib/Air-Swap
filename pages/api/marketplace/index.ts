@@ -10,8 +10,6 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 import { getUserFromRequest } from '@/lib/auth';
-import { isDemo } from '@/lib/isDemo';
-import { demoMarketplace } from '@/demo/demoMarketplace';
 import { MarketplaceModel } from '@/lib/db/models/marketplace';
 import { CreateListingSchema } from '@/lib/validators/marketplace';
 
@@ -52,15 +50,6 @@ async function handleGet(
   res: NextApiResponse<MarketplaceResponse>
 ) {
   try {
-    // Demo mode - return demo data
-    if (isDemo()) {
-      return res.status(200).json({
-        success: true,
-        data: demoMarketplace,
-        message: 'Demo marketplace listings retrieved successfully',
-      });
-    }
-
     // Real mode - query MongoDB with aggregation
     const listings = await MarketplaceModel.findActiveWithDetails();
 
@@ -105,22 +94,6 @@ async function handlePost(
   res: NextApiResponse<MarketplaceResponse>
 ) {
   try {
-    // Demo mode - return mock listing
-    if (isDemo()) {
-      const mockListing = {
-        id: `LST-${Date.now()}`,
-        ...req.body,
-        status: 'active',
-        created_at: new Date().toISOString(),
-      };
-
-      return res.status(201).json({
-        success: true,
-        data: mockListing,
-        message: 'Demo listing created successfully',
-      });
-    }
-
     // Authenticate user
     const user = await getUserFromRequest(req);
     if (!user) {

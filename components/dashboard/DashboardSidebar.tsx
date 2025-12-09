@@ -1,8 +1,8 @@
 import Link from "next/link";
+import Logo from "@/components/ui/Logo";
 import { useRouter } from "next/router";
 import { motion } from "framer-motion";
 import {
-  Leaf,
   Home,
   LayoutDashboard,
   Coins,
@@ -81,69 +81,70 @@ const DashboardSidebar = ({ role }: DashboardSidebarProps) => {
     <motion.aside
       initial={{ x: -20, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
-      className="w-64 bg-forest h-screen flex flex-col"
+      className="w-64 bg-gradient-to-b from-forest-dark via-forest to-forest-dark h-screen flex flex-col relative overflow-hidden border-r border-white/10 shadow-xl"
     >
-      {/* Logo */}
-      <div className="p-6">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-xl bg-teal/20 flex items-center justify-center">
-            <Leaf className="w-5 h-5 text-teal" />
-          </div>
-          <span className="font-display text-xl font-bold text-white">
-            AirSwap
-          </span>
-        </Link>
-      </div>
+      {/* Texture Overlay */}
+      <div className="absolute inset-0 texture-organic opacity-20 pointer-events-none mix-blend-overlay" />
 
-      {/* Role Badge */}
-      <div className="px-6 pb-6">
-        <div className="px-3 py-2 rounded-xl bg-white/10 text-center">
-          <span className="text-sm font-medium text-teal">{config.title}</span>
+      {/* Content */}
+      <div className="relative z-10 flex flex-col h-full">
+        {/* Logo */}
+        <div className="p-6">
+          <Link href="/" className="flex items-center gap-2">
+            <Logo variant="full" size="md" className="text-white" />
+          </Link>
         </div>
-      </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-3 space-y-1">
-        {config.links.map((link) => {
-          const isActive = location.pathname === link.href;
-          return (
-            <Link
-              key={link.label}
-              href={link.href}
-              className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300",
-                isActive
-                  ? "bg-teal/20 text-teal"
-                  : "text-white/70 hover:text-white hover:bg-white/10"
-              )}
-            >
-              <link.icon className="w-5 h-5" />
-              <span className="font-medium">{link.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
+        {/* Role Badge */}
+        <div className="px-6 pb-6">
+          <div className="px-3 py-2 rounded-xl bg-white/10 backdrop-blur-sm text-center border border-white/5">
+            <span className="text-sm font-medium text-teal shadow-glow">{config.title}</span>
+          </div>
+        </div>
 
-      {/* Bottom Links */}
-      <div className="p-3 border-t border-white/10 space-y-1">
-        <Link
-          href="/"
-          className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-all"
-        >
-          <Home className="w-5 h-5" />
-          <span className="font-medium">Home</span>
-        </Link>
-        <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-all">
-          <Settings className="w-5 h-5" />
-          <span className="font-medium">Settings</span>
-        </button>
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:text-destructive hover:bg-destructive/10 transition-all"
-        >
-          <LogOut className="w-5 h-5" />
-          <span className="font-medium">Logout</span>
-        </button>
+        {/* Navigation */}
+        <nav className="flex-1 px-3 space-y-1">
+          {config.links.map((link) => {
+            const isActive = location.pathname === link.href;
+            return (
+              <Link
+                key={link.label}
+                href={link.href}
+                className={cn(
+                  "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group",
+                  isActive
+                    ? "bg-teal/20 text-teal shadow-glow border border-teal/20"
+                    : "text-white/70 hover:text-white hover:bg-white/10"
+                )}
+              >
+                <link.icon className={cn("w-5 h-5 transition-transform group-hover:scale-110", isActive && "text-teal")} />
+                <span className="font-medium">{link.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Bottom Links */}
+        <div className="p-3 border-t border-white/10 space-y-1 bg-black/20 backdrop-blur-sm">
+          <Link
+            href="/"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-all group"
+          >
+            <Home className="w-5 h-5 group-hover:text-teal transition-colors" />
+            <span className="font-medium">Home</span>
+          </Link>
+          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-all group">
+            <Settings className="w-5 h-5 group-hover:rotate-45 transition-transform" />
+            <span className="font-medium">Settings</span>
+          </button>
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:text-destructive hover:bg-destructive/10 transition-all group"
+          >
+            <LogOut className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            <span className="font-medium">Logout</span>
+          </button>
+        </div>
       </div>
     </motion.aside>
   );

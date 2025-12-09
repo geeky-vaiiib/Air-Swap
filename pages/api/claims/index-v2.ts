@@ -9,8 +9,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
-import { isDemo } from '@/lib/isDemo';
-import { demoClaims } from '@/demo/demoClaims';
+
 import { CreateClaimSchema, ListClaimsQuerySchema } from '@/lib/validators/claims';
 import { ClaimsModel, type EvidenceFile } from '@/lib/db/models/claims';
 import { getUserFromRequest } from '@/lib/auth';
@@ -66,21 +65,7 @@ async function handleGet(
       });
     }
 
-    // Demo mode
-    if (isDemo()) {
-      const { status } = req.query;
-      let filteredClaims = [...demoClaims];
 
-      if (status && typeof status === 'string') {
-        filteredClaims = filteredClaims.filter(claim => claim.status === status);
-      }
-
-      return res.status(200).json({
-        success: true,
-        data: filteredClaims,
-        message: 'Demo claims retrieved successfully',
-      });
-    }
 
     // Parse and validate query parameters
     const query = ListClaimsQuerySchema.parse(req.query);
@@ -88,7 +73,7 @@ async function handleGet(
 
     // Build filter
     const filter: any = {};
-    
+
     // Contributors only see their own claims; verifiers/admins see all
     if (user.role === 'contributor') {
       filter.contributorId = new ObjectId(user.id);
@@ -168,18 +153,7 @@ async function handlePost(
       });
     }
 
-    // Demo mode
-    if (isDemo()) {
-      return res.status(201).json({
-        success: true,
-        data: {
-          id: `CLM-DEMO-${Date.now()}`,
-          status: 'pending',
-          message: 'Demo mode: Claim would be created',
-        },
-        message: 'Demo claim created successfully',
-      });
-    }
+
 
     // Rate limiting: 10 claims per day
     const claimsToday = await ClaimsModel.countByUserToday(user.id);

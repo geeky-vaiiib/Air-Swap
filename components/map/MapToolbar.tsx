@@ -1,65 +1,47 @@
 import { motion } from "framer-motion";
-import { MousePointer, Pentagon, Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Search, SlidersHorizontal } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface MapToolbarProps {
-  activeTool: "select" | "polygon";
-  onToolChange: (tool: "select" | "polygon") => void;
-  onClear: () => void;
-  canClear: boolean;
+  onSearch: (query: string) => void;
+  onFilterToggle: () => void;
 }
 
-const MapToolbar = ({ activeTool, onToolChange, onClear, canClear }: MapToolbarProps) => {
-  const tools = [
-    { id: "select" as const, icon: MousePointer, label: "Select" },
-    { id: "polygon" as const, icon: Pentagon, label: "Draw Polygon" },
-  ];
-
+const MapToolbar = ({ onSearch, onFilterToggle }: MapToolbarProps) => {
   return (
     <motion.div
-      initial={{ y: 20, opacity: 0 }}
+      initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10"
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      className="absolute top-24 left-6 z-[40]"
     >
-      <div className="glass rounded-2xl p-2 shadow-soft flex items-center gap-1">
-        {tools.map((tool) => (
-          <motion.button
-            key={tool.id}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => onToolChange(tool.id)}
-            className={cn(
-              "flex items-center gap-2 px-4 py-3 rounded-xl transition-all duration-300",
-              activeTool === tool.id
-                ? "bg-forest text-primary-foreground"
-                : "hover:bg-forest/10 text-forest"
-            )}
-          >
-            <tool.icon className="w-5 h-5" />
-            <span className="text-sm font-medium">{tool.label}</span>
-          </motion.button>
-        ))}
-        
-        <div className="w-px h-8 bg-border mx-1" />
-        
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={onClear}
-          disabled={!canClear}
-          className={cn(
-            "flex items-center gap-2 px-4 py-3 rounded-xl transition-all duration-300",
-            canClear
-              ? "hover:bg-destructive/10 text-destructive"
-              : "opacity-50 cursor-not-allowed text-muted-foreground"
-          )}
+      <div className="flex items-center gap-2">
+        <div className="glass-panel rounded-full p-2 pl-4 flex items-center shadow-lg border border-white/20">
+          <Search className="w-5 h-5 text-muted-foreground mr-2" />
+          <input
+            type="text"
+            placeholder="Search location..."
+            className="bg-transparent border-none outline-none text-sm w-64 text-foreground placeholder:text-muted-foreground/70"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                onSearch(e.currentTarget.value);
+              }
+            }}
+          />
+        </div>
+
+        <Button
+          variant="glass"
+          size="icon"
+          onClick={onFilterToggle}
+          className="rounded-full w-10 h-10 shadow-lg"
         >
-          <Trash2 className="w-5 h-5" />
-          <span className="text-sm font-medium">Clear</span>
-        </motion.button>
+          <SlidersHorizontal className="w-4 h-4 text-foreground" />
+        </Button>
       </div>
     </motion.div>
   );
 };
 
 export default MapToolbar;
+

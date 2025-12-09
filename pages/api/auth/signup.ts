@@ -9,7 +9,6 @@ import type { AuthResponse } from '@/lib/types/auth';
 import { createSessionCookie, hashPassword, generateToken } from '@/lib/auth';
 import { UsersModel } from '@/lib/db/models/users';
 import { SignupSchema } from '@/lib/validators/auth';
-import { isDemo } from '@/lib/isDemo';
 
 export default async function handler(
   req: NextApiRequest,
@@ -24,35 +23,6 @@ export default async function handler(
   }
 
   try {
-    // Demo mode - return mock user
-    if (isDemo()) {
-      const { email, full_name, role } = req.body;
-      const mockUser = {
-        id: 'demo-user-' + Date.now(),
-        email: email || 'demo@airswap.io',
-        role: role || 'contributor',
-        full_name: full_name || 'Demo User',
-      };
-
-      const token = generateToken(mockUser);
-      const sessionCookie = createSessionCookie({
-        userId: mockUser.id,
-        email: mockUser.email,
-        role: mockUser.role,
-        full_name: mockUser.full_name,
-        access_token: token,
-      });
-
-      res.setHeader('Set-Cookie', sessionCookie);
-
-      return res.status(201).json({
-        success: true,
-        user: mockUser,
-        access_token: token,
-        message: 'Demo account created successfully',
-      });
-    }
-
     // Validate request body
     const validatedData = SignupSchema.parse(req.body);
     const { email, password, full_name, role } = validatedData;

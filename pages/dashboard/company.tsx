@@ -7,32 +7,57 @@ import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import MarketplaceCard from "@/components/dashboard/MarketplaceCard";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
-import { isDemo } from "@/lib/isDemo";
-import { demoMarketplace, type DemoMarketplaceItem } from "@/demo/demoMarketplace";
+
+interface MarketplaceItem {
+  id: string;
+  contributor: string;
+  ndviDelta: number;
+  credits: number;
+  date: string;
+  price: number;
+}
 
 const CompanyDashboard = () => {
-  const [marketplaceItems, setMarketplaceItems] = useState<DemoMarketplaceItem[]>([]);
+  const [marketplaceItems, setMarketplaceItems] = useState<MarketplaceItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (isDemo()) {
-      setMarketplaceItems(demoMarketplace);
-    } else {
-      // TODO: Fetch real marketplace data from API
-      // fetch('/api/marketplace').then(res => res.json()).then(setMarketplaceItems);
-      setMarketplaceItems([]);
-    }
+    const fetchMarketplace = async () => {
+      try {
+        const res = await fetch('/api/marketplace');
+        const data = await res.json();
+        if (data.success) {
+          const items = data.data.map((item: any) => ({
+            id: item._id,
+            contributor: item.seller?.full_name || 'Unknown Seller',
+            ndviDelta: item.credit?.ndviDelta || 0, // Fallback as deep lookup might be missing
+            credits: item.quantity,
+            date: new Date(item.created_at).toLocaleDateString(),
+            price: item.price
+          }));
+          setMarketplaceItems(items);
+        }
+      } catch (error) {
+        console.error('Failed to fetch marketplace:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchMarketplace();
   }, []);
+
   const handleBuy = (id: string) => {
     toast({
-      title: "Purchase Initiated",
-      description: `Starting purchase for listing ${id} (Demo)`,
+      title: "Purchase feature coming soon",
+      description: `Purchase logic will be integrated with smart contracts. Item: ${id}`,
     });
   };
 
   return (
     <div className="flex h-screen bg-sand">
       <DashboardSidebar role="company" />
-      
+
       <main className="flex-1 overflow-y-auto">
         <div className="p-8">
           {/* Header */}
@@ -126,27 +151,33 @@ const CompanyDashboard = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {marketplaceItems.length === 0 ? (
-                <div className="col-span-full text-center py-12 text-muted-foreground">
-                  No marketplace listings available. {isDemo() ? "Demo mode is enabled but no demo data available." : "Check back later for new listings."}
-                </div>
-              ) : (
-                marketplaceItems.map((item, index) => (
-                <motion.div
-                  key={item.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 + index * 0.1 }}
-                >
-                  <MarketplaceCard
-                    {...item}
-                    onBuy={() => handleBuy(item.id)}
-                  />
-                </motion.div>
-              ))
-              )}
-            </div>
+            {isLoading ? (
+              <div className="flex justify-center py-10">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-forest"></div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {marketplaceItems.length === 0 ? (
+                  <div className="col-span-full text-center py-12 text-muted-foreground">
+                    No marketplace listings available. Check back later for new listings.
+                  </div>
+                ) : (
+                  marketplaceItems.map((item, index) => (
+                    <motion.div
+                      key={item.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3 + index * 0.1 }}
+                    >
+                      <MarketplaceCard
+                        {...item}
+                        onBuy={() => handleBuy(item.id)}
+                      />
+                    </motion.div>
+                  ))
+                )}
+              </div>
+            )}
           </motion.div>
 
           {/* Portfolio Section */}

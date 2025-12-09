@@ -12,7 +12,7 @@ import { ClaimsModel, type EvidenceFile } from '@/lib/db/models/claims';
 import { getUserFromRequest } from '@/lib/auth';
 import { AppendEvidenceSchema } from '@/lib/validators/claims';
 import { logger } from '@/lib/logger';
-import { isDemo } from '@/lib/isDemo';
+
 
 interface ApiResponse {
   success: boolean;
@@ -49,14 +49,7 @@ export default async function handler(
       });
     }
 
-    // Demo mode
-    if (isDemo()) {
-      return res.status(200).json({
-        success: true,
-        data: { id, message: 'Demo mode: Evidence would be appended' },
-        message: 'Demo evidence appended successfully',
-      });
-    }
+
 
     // Fetch existing claim
     const claim = await ClaimsModel.findById(id);

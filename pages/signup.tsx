@@ -3,14 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
 import { motion } from "framer-motion";
-import { Leaf, Mail, Lock, User, ArrowRight, Building2, CheckCircle, TreeDeciduous } from "lucide-react";
+import { Mail, Lock, User, ArrowRight, Building2, CheckCircle, TreeDeciduous } from "lucide-react";
+import Logo from "@/components/ui/Logo";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import GradientBackground from "@/components/layout/GradientBackground";
 import { cn } from "@/lib/utils";
-import { isDemo } from "@/lib/isDemo";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole } from "@/lib/types/auth";
 
@@ -48,16 +48,6 @@ const Signup = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Demo mode - skip API call
-    if (isDemo()) {
-      toast({
-        title: "Demo Mode",
-        description: "Redirecting to dashboard...",
-      });
-      router.push(`/dashboard/${selectedRole}`);
-      return;
-    }
 
     setIsLoading(true);
 
@@ -133,7 +123,7 @@ const Signup = () => {
                 transition={{ duration: 4, repeat: Infinity }}
                 className="w-24 h-24 rounded-3xl bg-white/20 backdrop-blur-xl flex items-center justify-center mx-auto mb-8"
               >
-                <Leaf className="w-12 h-12 text-teal" />
+                <Logo variant="icon" size="xl" />
               </motion.div>
               <h2 className="text-4xl font-display font-bold text-white mb-4">
                 Join the Green Revolution
@@ -174,14 +164,10 @@ const Signup = () => {
           transition={{ duration: 0.6 }}
           className="w-full max-w-md space-y-8"
         >
+
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-forest to-emerald flex items-center justify-center">
-              <Leaf className="w-6 h-6 text-teal" />
-            </div>
-            <span className="font-display text-2xl font-bold text-forest">
-              AirSwap
-            </span>
+          <Link href="/" className="flex items-center gap-2 mb-8 justify-center">
+            <Logo variant="icon" size="xl" />
           </Link>
 
           <div>

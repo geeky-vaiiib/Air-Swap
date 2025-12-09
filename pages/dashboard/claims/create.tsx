@@ -180,21 +180,21 @@ export default function CreateClaimPage() {
   const nextStep = async () => {
     // Get current form values
     const currentValues = getValues();
-    
+
     // Validate only the fields for the current step using Zod
-    let validationResult;
-    
+    // let validationResult;
+
     try {
       switch (currentStep) {
         case 1:
-          validationResult = stepSchemas[1].parse({
+          stepSchemas[1].parse({
             fullName: currentValues.fullName,
             email: currentValues.email,
             phone: currentValues.phone,
           });
           break;
         case 2:
-          validationResult = stepSchemas[2].parse({
+          stepSchemas[2].parse({
             country: currentValues.country,
             state: currentValues.state,
             city: currentValues.city,
@@ -203,13 +203,13 @@ export default function CreateClaimPage() {
           });
           break;
         case 3:
-          validationResult = stepSchemas[3].parse({
+          stepSchemas[3].parse({
             beforeEvidence: currentValues.beforeEvidence,
             afterEvidence: currentValues.afterEvidence,
           });
           break;
         case 4:
-          validationResult = stepSchemas[4].parse({
+          stepSchemas[4].parse({
             description: currentValues.description,
             areaHectares: currentValues.areaHectares,
             expectedCredits: currentValues.expectedCredits,
@@ -217,7 +217,7 @@ export default function CreateClaimPage() {
           });
           break;
       }
-      
+
       // Additional UI validation for specific steps
       if (currentStep === 2) {
         const polygon = currentValues.polygon;
@@ -241,7 +241,7 @@ export default function CreateClaimPage() {
       // Move to next step
       setCurrentStep(Math.min(currentStep + 1, totalSteps));
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      
+
     } catch (error) {
       if (error instanceof z.ZodError) {
         const firstError = error.errors[0];
@@ -737,9 +737,8 @@ export default function CreateClaimPage() {
               {stepTitles.map((title, index) => (
                 <span
                   key={index}
-                  className={`${
-                    index + 1 <= currentStep ? 'text-primary font-medium' : ''
-                  }`}
+                  className={`${index + 1 <= currentStep ? 'text-primary font-medium' : ''
+                    }`}
                 >
                   {index + 1}. {title}
                 </span>

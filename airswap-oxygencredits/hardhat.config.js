@@ -1,5 +1,6 @@
 require("@matterlabs/hardhat-zksync-solc");
 require("@matterlabs/hardhat-zksync-verify");
+require("@nomicfoundation/hardhat-toolbox");
 
 
 /** @type import('hardhat/config').HardhatUserConfig */
@@ -13,7 +14,13 @@ module.exports = {
       },
     },
   },
+  defaultNetwork: "polygonAmoy",
   networks: {
+    polygonAmoy: {
+      url: "https://rpc-amoy.polygon.technology",
+      chainId: 80002,
+      gasPrice: "auto",
+    },
     zkSyncSepoliaTestnet: {
       url: "https://sepolia.era.zksync.dev",
       ethNetwork: "sepolia",

@@ -101,7 +101,9 @@ const HeroSection = () => {
                   {/* Grid pattern */}
                   <div className="absolute inset-0 grid grid-cols-8 grid-rows-8 gap-1 p-4">
                     {Array.from({ length: 64 }).map((_, i) => {
-                      const intensity = Math.random();
+                      // Deterministic 'randomness' based on index to prevent hydration mismatch
+                      const n = i * 137.508; // Golden angle approx
+                      const intensity = Math.abs(Math.sin(n));
                       return (
                         <motion.div
                           key={i}
@@ -110,9 +112,7 @@ const HeroSection = () => {
                           transition={{ delay: i * 0.02 }}
                           className="rounded-lg"
                           style={{
-                            backgroundColor: `hsl(${140 + intensity * 30}, ${
-                              60 + intensity * 30
-                            }%, ${30 + intensity * 40}%)`,
+                            backgroundColor: `hsl(${Math.round(140 + intensity * 30)}, ${Math.round(60 + intensity * 30)}%, ${Math.round(30 + intensity * 40)}%)`,
                           }}
                         />
                       );

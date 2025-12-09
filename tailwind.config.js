@@ -1,5 +1,5 @@
 /** @type {import('tailwindcss').Config} */
-module.exports = {
+export default {
   darkMode: ["class"],
   content: [
     "./pages/**/*.{ts,tsx,js,jsx}",
@@ -55,48 +55,32 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // AirSwap custom colors
+        // Temporary aliases to prevent breaking legacy code immediately
+        // These map back to our standard tokens
         forest: {
-          DEFAULT: "hsl(var(--forest))",
-          light: "hsl(var(--forest-light))",
-          dark: "hsl(var(--forest-dark))",
-        },
-        sand: {
-          DEFAULT: "hsl(var(--sand))",
-          dark: "hsl(var(--sand-dark))",
+          DEFAULT: "hsl(var(--primary))",
+          light: "hsl(var(--primary))",
+          dark: "hsl(var(--foreground))",
         },
         teal: {
-          DEFAULT: "hsl(var(--teal))",
-          glow: "hsl(var(--teal-glow))",
+          DEFAULT: "hsl(var(--accent))",
         },
-        emerald: {
-          DEFAULT: "hsl(var(--emerald))",
-          light: "hsl(var(--emerald-light))",
-        },
-        sidebar: {
-          DEFAULT: "hsl(var(--sidebar-background))",
-          foreground: "hsl(var(--sidebar-foreground))",
-          primary: "hsl(var(--sidebar-primary))",
-          "primary-foreground": "hsl(var(--sidebar-primary-foreground))",
-          accent: "hsl(var(--sidebar-accent))",
-          "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
-          border: "hsl(var(--sidebar-border))",
-          ring: "hsl(var(--sidebar-ring))",
-        },
+        sand: {
+          DEFAULT: "hsl(var(--background))",
+        }
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
-        xl: "1.25rem",
-        "2xl": "1.5rem",
-        "3xl": "2rem",
+        xl: "calc(var(--radius) + 4px)",
+        "2xl": "calc(var(--radius) + 8px)",
+        "3xl": "calc(var(--radius) + 16px)",
       },
       boxShadow: {
-        'glow': '0 0 40px hsl(161 85% 59% / 0.3)',
-        'glow-lg': '0 0 60px hsl(161 85% 59% / 0.4)',
-        'soft': '0 4px 16px hsl(156 70% 21% / 0.12)',
-        'soft-lg': '0 8px 32px hsl(156 70% 21% / 0.16)',
+        'glow': 'var(--shadow-glow)',
+        'soft': 'var(--shadow-md)',
+        'soft-lg': 'var(--shadow-lg)',
       },
       keyframes: {
         "accordion-down": {

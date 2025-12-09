@@ -8,7 +8,6 @@ import { z } from 'zod';
 import type { AuthResponse } from '@/lib/types/auth';
 import { createSessionCookie, authenticateUser, generateToken } from '@/lib/auth';
 import { LoginSchema } from '@/lib/validators/auth';
-import { isDemo } from '@/lib/isDemo';
 
 export default async function handler(
   req: NextApiRequest,
@@ -23,41 +22,6 @@ export default async function handler(
   }
 
   try {
-    // Demo mode - return mock user based on email
-    if (isDemo()) {
-      const { email } = req.body;
-      let role: 'contributor' | 'company' | 'verifier' = 'contributor';
-
-      // Determine role from email for demo purposes
-      if (email?.includes('verifier')) role = 'verifier';
-      else if (email?.includes('company')) role = 'company';
-
-      const mockUser = {
-        id: 'demo-user-' + Date.now(),
-        email: email || 'demo@airswap.io',
-        role,
-        full_name: `Demo ${role.charAt(0).toUpperCase() + role.slice(1)}`,
-      };
-
-      const token = generateToken(mockUser);
-      const sessionCookie = createSessionCookie({
-        userId: mockUser.id,
-        email: mockUser.email,
-        role: mockUser.role,
-        full_name: mockUser.full_name,
-        access_token: token,
-      });
-
-      res.setHeader('Set-Cookie', sessionCookie);
-
-      return res.status(200).json({
-        success: true,
-        user: mockUser,
-        access_token: token,
-        message: 'Demo login successful',
-      });
-    }
-
     // Validate request body
     const validatedData = LoginSchema.parse(req.body);
     const { email, password } = validatedData;

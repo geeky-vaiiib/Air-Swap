@@ -1,0 +1,103 @@
+
+
+  OxygenCredits
+    Deployment
+      ✔ Should set the correct owner
+      ✔ Should grant VERIFIER_ROLE to owner
+      ✔ Should initialize token counter
+    Role Management
+      ✔ Should allow admin to grant verifier role
+      ✔ Should allow admin to revoke verifier role
+      ✔ Should prevent non-admin from granting verifier role
+    Minting Credits
+      1) Should mint credits successfully
+      ✔ Should store metadata correctly
+      ✔ Should increment token IDs
+      ✔ Should prevent non-verifier from minting
+      2) Should reject invalid recipient address
+      ✔ Should reject zero amount
+      ✔ Should reject empty claim ID
+      ✔ Should reject empty metadata URI
+    Burning Credits
+      3) Should burn credits successfully
+      ✔ Should emit CreditsBurned event
+      ✔ Should prevent burning more than balance
+    Metadata Retrieval
+      ✔ Should retrieve metadata for existing token
+      ✔ Should revert for non-existent token
+    ERC1155 Functionality
+      ✔ Should check balance correctly
+      ✔ Should transfer credits between users
+      ✔ Should support batch balance queries
+    Multiple Verifiers
+      ✔ Should allow multiple verifiers to mint
+    Edge Cases
+      ✔ Should handle large NDVI values
+      4) Should handle large credit amounts
+      ✔ Should handle long location strings
+
+
+  22 passing (652ms)
+  4 failing
+
+  1) OxygenCredits
+       Minting Credits
+         Should mint credits successfully:
+     AssertionError: expected undefined not to be undefined
+      at Context.<anonymous> (test/OxygenCredits.test.js:91:36)
+
+  2) OxygenCredits
+       Minting Credits
+         Should reject invalid recipient address:
+     TypeError: Cannot read properties of undefined (reading 'AddressZero')
+      at Context.<anonymous> (test/OxygenCredits.test.js:143:38)
+      at processImmediate (node:internal/timers:505:21)
+
+  3) OxygenCredits
+       Burning Credits
+         Should burn credits successfully:
+     TypeError: balanceBefore.sub is not a function
+      at Context.<anonymous> (test/OxygenCredits.test.js:186:57)
+
+  4) OxygenCredits
+       Edge Cases
+         Should handle large credit amounts:
+     TypeError: Cannot read properties of undefined (reading 'parseEther')
+      at Context.<anonymous> (test/OxygenCredits.test.js:287:46)
+      at processImmediate (node:internal/timers:505:21)
+
+
+
+················································································································
+|  [32m[1mSolidity and Network Configuration[22m[39m                                                                          │
+···························|·················|···············|·················|································
+|  [36mSolidity: 0.8.23[39m        ·  [36mOptim: true[39m    ·  [36mRuns: 200[39m    ·  [36mviaIR: false[39m   ·     [36mBlock: 30,000,000 gas[39m     │
+···························|·················|···············|·················|································
+|  [32m[1mMethods[22m[39m                                                                                                     │
+···························|·················|···············|·················|················|···············
+|  [32m[1mContracts / Methods[22m[39m     ·  [1mMin[22m            ·  [1mMax[22m          ·  [1mAvg[22m            ·  [1m# calls[22m       ·  [1musd (avg)[22m   │
+···························|·················|···············|·················|················|···············
+|  [1mOxygenCredits[22m           ·                                                                                   │
+···························|·················|···············|·················|················|···············
+|      burnCredits         ·              [90m-[39m  ·            [90m-[39m  ·         37,312  ·             3  ·           [32m[90m-[39m[32m[39m  │
+···························|·················|···············|·················|················|···············
+|      grantVerifierRole   ·              [90m-[39m  ·            [90m-[39m  ·        100,907  ·             3  ·           [32m[90m-[39m[32m[39m  │
+···························|·················|···············|·················|················|···············
+|      mintCredits         ·        [36m199,514[39m  ·      [31m925,546[39m  ·        242,268  ·            17  ·           [32m[90m-[39m[32m[39m  │
+···························|·················|···············|·················|················|···············
+|      revokeVerifierRole  ·              [90m-[39m  ·            [90m-[39m  ·         35,583  ·             1  ·           [32m[90m-[39m[32m[39m  │
+···························|·················|···············|·················|················|···············
+|      safeTransferFrom    ·              [90m-[39m  ·            [90m-[39m  ·         56,921  ·             1  ·           [32m[90m-[39m[32m[39m  │
+···························|·················|···············|·················|················|···············
+|  [32m[1mDeployments[22m[39m                               ·                                 ·  [1m% of limit[22m    ·              │
+···························|·················|···············|·················|················|···············
+|  [1mOxygenCredits[22m           ·              [90m-[39m  ·            [90m-[39m  ·      5,141,436  ·        17.1 %  ·           [32m[90m-[39m[32m[39m  │
+···························|·················|···············|·················|················|···············
+|  [32m[1mKey[22m[39m                                                                                                         │
+················································································································
+|  [35m[1m◯[22m[39m  Execution gas for this method does not include intrinsic gas overhead                                    │
+················································································································
+|  [35m[1m△[22m[39m  Cost was non-zero but below the precision setting for the currency display (see options)                 │
+················································································································
+|  [35mToolchain:[39m  hardhat                                                                                         │
+················································································································

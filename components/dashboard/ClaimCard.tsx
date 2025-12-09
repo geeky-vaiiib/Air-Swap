@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 interface ClaimCardProps {
   id: string;
-  location: string;
+  location: string | { country: string; state?: string; city?: string };
   date: string;
   ndviDelta?: number;
   status: "pending" | "verified" | "rejected";
@@ -43,7 +43,9 @@ const ClaimCard = ({ id, location, date, ndviDelta, status, credits, creditsEarn
             <MapPin className="w-5 h-5 text-forest" />
           </div>
           <div>
-            <h4 className="font-medium text-forest">{location}</h4>
+            <h4 className="font-medium text-forest">
+              {typeof location === 'string' ? location : (location as any).country || 'Unknown Location'}
+            </h4>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Calendar className="w-3 h-3" />
               {date}

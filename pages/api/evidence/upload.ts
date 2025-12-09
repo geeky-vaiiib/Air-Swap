@@ -10,7 +10,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 import { getUserFromRequest } from '@/lib/auth';
-import { isDemo } from '@/lib/isDemo';
+
 import { EvidenceModel } from '@/lib/db/models/evidence';
 import { UploadEvidenceSchema } from '@/lib/validators/evidence';
 
@@ -34,22 +34,7 @@ export default async function handler(
   }
 
   try {
-    // Demo mode - return mock evidence
-    if (isDemo()) {
-      const mockEvidence = {
-        id: `EVD-${Date.now()}`,
-        claim_id: req.body.claim_id,
-        cid: req.body.cid || `Qm${Date.now().toString(36)}`,
-        url: req.body.url || `https://demo.storage.airswap.io/${Date.now()}`,
-        created_at: new Date().toISOString(),
-      };
 
-      return res.status(201).json({
-        success: true,
-        data: mockEvidence,
-        message: 'Demo evidence uploaded successfully',
-      });
-    }
 
     // Authenticate user
     const user = await getUserFromRequest(req);
